@@ -1,6 +1,6 @@
-# Fast JSON Video Spec
+# Legacy JSON Video Spec
 
-Use this engine only for fast, constrained, deliberately consistent work. It cannot replace custom Revideo source for professional reference-quality motion.
+This format exists only to maintain an existing version 1 project or fulfill an explicit compatibility request. Do not use it for a new production, do not render it as a draft, and do not convert it into a Revideo film after rendering. New work starts directly in the neutral Revideo scaffold.
 
 The renderer accepts a version 1 JSON plan. Scene durations must sum to the exact video duration.
 
@@ -21,7 +21,6 @@ The renderer accepts a version 1 JSON plan. Scene durations must sum to the exac
     "background": "#070A12",
     "foreground": "#F7F8FF"
   },
-  "music": { "track": "signal-flow", "volume": 0.18 },
   "scenes": [],
   "output": "./output/promo.mp4"
 }

@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, scaffoldAdvancedProject } from '../src/advanced/engine.js';
 import { listAudioTracks } from '../src/audio/catalog.js';
+import { analyzeMusic } from '../src/audio/analyze.js';
+import { searchLocalMusic } from '../src/audio/search.js';
+import { motionComponentLibrary, searchMotionComponents } from '../src/advanced/library.js';
 import { editImage, musicEnvelopeExpression } from '../src/media/edit.js';
 import { assessFreeLicense } from '../src/library/license.js';
 import { searchLocalAssets, searchLocalVideos } from '../src/library/local.js';
@@ -66,6 +69,24 @@ describe('open music catalog', () => {
       { time: 2, volume: 0.5 },
     ])).toContain('if(lt(t,1)');
     expect(() => musicEnvelopeExpression([{ time: 1, volume: 1 }, { time: 1, volume: 0 }])).toThrow(/strictly increasing/);
+  });
+
+  it('does not inject bundled tracks into a general local search', async () => {
+    expect(await searchLocalMusic()).toEqual([]);
+    const bundled = await searchLocalMusic({ includeBundled: true });
+    expect(bundled.length).toBeGreaterThanOrEqual(3);
+    expect(bundled.every((track) => track.provider === 'bundled')).toBe(true);
+  });
+
+  it('analyzes a candidate without recommending or selecting it', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-music-review-'));
+    const analysis = await analyzeMusic(join(import.meta.dirname, '../assets/audio/quiet-precision.wav'), directory);
+    expect(analysis.duration).toBeGreaterThan(10);
+    expect(analysis.energyCurve.length).toBeGreaterThan(10);
+    expect(analysis.integratedLufs).toBeTypeOf('number');
+    expect(analysis.usage).toContain('does not recommend');
+    await expect(access(analysis.visualReview!.waveform)).resolves.toBeUndefined();
+    await expect(access(analysis.visualReview!.spectrogram)).resolves.toBeUndefined();
   });
 });
 
@@ -144,11 +165,14 @@ describe('advanced project source', () => {
   it('scaffolds and patches one exact source fragment without recreating the project', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-promo-advanced-'));
     const project = await scaffoldAdvancedProject({ outputDir: directory, name: 'Unique launch' });
-    await patchAdvancedProjectFile(directory, 'scene.tsx', [{ find: 'Motion without templates.', replace: 'A revised product promise.' }]);
+    await patchAdvancedProjectFile(directory, 'scene.tsx', [{ find: '// Replace this pause with the authored scene timeline.', replace: '// Authored production timeline begins here.' }]);
     const source = await readFile(project.sceneFile, 'utf8');
     const kinetic = await readFile(join(directory, 'kinetic.ts'), 'utf8');
-    expect(source).toContain('A revised product promise.');
+    const librarySource = await readFile(join(directory, 'motion-library.tsx'), 'utf8');
+    const libraryManifest = JSON.parse(await readFile(join(directory, 'motion-library.json'), 'utf8')) as { count: number; components: unknown[] };
+    expect(source).toContain('Authored production timeline begins here.');
     expect(source).not.toContain('Motion without templates.');
+    expect(source).not.toMatch(/#7c5cff|#6366f1|cards/i);
     await expect(access(join(directory, 'kinetic.ts'))).resolves.toBeUndefined();
     expect(kinetic).toContain('export function impactText');
     expect(kinetic).toContain('export function letterRise');
@@ -156,11 +180,24 @@ describe('advanced project source', () => {
     expect(kinetic).toContain('export function* eraseAndType');
     expect(kinetic).toContain('export function* pushText');
     expect(kinetic).toContain('export function arrangeTextRow');
+    expect(librarySource).toContain('export function ProductFrame');
+    expect(librarySource).toContain('export function cameraMove');
+    expect(libraryManifest.count).toBe(motionComponentLibrary.length);
+    expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['kinetic.ts', 'project.tsx', 'scene.tsx']));
-    await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('A revised product promise.') });
+    expect(listed.files).toEqual(expect.arrayContaining(['kinetic.ts', 'motion-library.json', 'motion-library.tsx', 'project.tsx', 'scene.tsx']));
+    await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
+  });
+
+  it('searches a broad component vocabulary by intent without returning a default template', () => {
+    expect(motionComponentLibrary.length).toBeGreaterThanOrEqual(50);
+    expect(searchMotionComponents({ query: 'interface assembly' }).map((item) => item.id)).toContain('interface-assembly');
+    expect(searchMotionComponents({ query: 'camera follows the assembling navigation' }).map((item) => item.id)).toContain('interface-assembly');
+    const cameras = searchMotionComponents({ categories: ['camera'], energy: ['impact'], limit: 20 });
+    expect(cameras.length).toBeGreaterThan(0);
+    expect(cameras.every((item) => item.category === 'camera' && item.energy.includes('impact'))).toBe(true);
   });
 });
 

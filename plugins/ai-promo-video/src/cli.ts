@@ -8,8 +8,9 @@ Commands:
   capture <capture.json>
   record <capture.json>
   music [--mood word] [--max-intensity 0.7]
-  music:search --query "focused technology" [--provider all|local|openverse] [--dirs path,path]
+  music:search --query "focused technology" [--provider all|local|bundled|openverse] [--dirs path,path] [--include-bundled]
   music:download <openverse-id> --output-dir <dir>
+  music:analyze <audio-file> [--review-dir <dir>]
   music:mix <mix.json>
   video:search --query "software team" [--provider all|local|wikimedia|pexels] [--dirs path,path] [--orientation landscape]
   video:download <id> --provider wikimedia|pexels --output-dir <dir>
@@ -19,6 +20,8 @@ Commands:
   validate <spec.json> [--kind video|capture]
   render <video.json> [--workers 4] [--keep-frames]
   motion:capabilities
+  motion:search --query "camera follows interface assembly" [--categories camera,product --energy measured,impact]
+  motion:get <component-id>
   advanced:init <directory> --name "Product promo" [--width 1920 --height 1080 --fps 30]
   advanced:render <project.tsx> --output <video.mp4> [--workers 1] [--start 10 --end 16]
   advanced:patch <project-dir> <relative-file> <patches.json>

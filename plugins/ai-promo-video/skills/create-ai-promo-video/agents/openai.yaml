@@ -2,12 +2,12 @@ interface:
   display_name: "AI Promo Video Director"
   short_description: "Direct polished, headless AI promo videos"
   brand_color: "#7C5CFF"
-  default_prompt: "Use $create-ai-promo-video to direct a polished promo, render it, and visually review the result."
+  default_prompt: "Use $create-ai-promo-video to design a distinct library-first Revideo composition, render it, and visually review the result."
 dependencies:
   tools:
     - type: "mcp"
       value: "ai-promo-video"
-      description: "Searches licensed free media, captures the product, and renders deterministic motion-design videos."
+      description: "Searches licensed free media and motion components, analyzes music, captures products, and renders editable Revideo compositions."
       transport: "stdio"
 policy:
   allow_implicit_invocation: true

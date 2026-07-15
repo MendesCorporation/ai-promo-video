@@ -4,7 +4,7 @@
 
 AI Promo Video is an open-source, headless production system for professional promo videos. There is no graphical editor, hosted service, local AI model, or hidden subscription. Users install the project, and the AI they already use in Codex, Claude Code, or Cursor gains the tools and instructions required to plan, capture, animate, render, review, and revise an entire video.
 
-This is not a slideshow generator. The professional engine is built on Revideo and TypeScript, enabling fully custom motion design: perspective cameras, zoom and tracking, interfaces assembled element by element, choreographed cursors, kinetic typography, masks, filters, particles, SVG, procedural shapes, images, video, shaders, and Three.js scenes. FFmpeg handles editing, audio mixing, inspection, and incremental revisions.
+This is not a slideshow generator. Every new production is one editable Revideo and TypeScript composition. The AI searches a broad vocabulary of reusable motion systems, combines only what fits the current story, and writes custom code in the same scene whenever needed. That enables perspective cameras, zoom and tracking, interfaces assembled element by element, choreographed cursors, kinetic typography, masks, filters, particles, SVG, procedural shapes, images, video, shaders, and Three.js scenes without locking the result to a template. FFmpeg handles editing, audio analysis and mixing, inspection, and incremental revisions.
 
 ## See what it can already do
 
@@ -34,8 +34,8 @@ Recording an application is only raw material. A strong promo also needs a story
 
 This project separates that problem into two parts:
 
-- **The Skill is the director.** It teaches the AI how to turn a brief into a story, choose what to capture, design the shots, synchronize music, avoid generic motion, and review its own work.
-- **The MCP server is the production crew.** It provides deterministic operations for navigating the product, recording it, finding free media, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning the delivery directory.
+- **The Skill is the director.** It teaches the AI how to turn a brief into a distinct story and art direction, choose what to capture, discover motion components without treating them as templates, compare music without a default track, and review its own work.
+- **The MCP server is the production crew.** It provides deterministic operations for navigating the product, recording it, searching the motion library and free media, analyzing music, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning the delivery directory.
 
 No AI model is bundled with the project. Codex, Claude, or Cursor uses the model already selected by the user. For clients that do not discover filesystem Skills, the MCP server exposes the same directing guide through a prompt and resources.
 
@@ -46,9 +46,9 @@ When a user asks for “a 30-second promo for this SaaS,” the AI follows this 
 1. Understands the product, audience, promise, duration, format, and references.
 2. Inspects the real application and decides which flows must be recorded.
 3. Captures clean screenshots or product footage, including user-configured authenticated sessions.
-4. Searches local or online sources for music, footage, and assets with known licenses.
-5. Writes the story, scene map, musical beats, and camera intent.
-6. Creates a custom Revideo/TypeScript scene without forcing the design into a fixed template.
+4. Writes the musical intent, then searches local or online sources for music, footage, and assets with known licenses. Bundled tracks are optional and excluded unless explicitly requested.
+5. Writes a story, art direction, beat map, musical accents, and camera logic for this production rather than copying a fixed scene arc.
+6. Searches the component vocabulary and creates the real Revideo/TypeScript composition from selected primitives plus custom code. It never renders a generic template to replace later.
 7. Renders H.264/AAC video at 24–60 FPS and up to 4K.
 8. Extracts frames from the full film and around every transition so the AI can inspect its own output.
 9. Fixes visual anomalies, timing, typography, camera motion, or composition. If a problem is isolated, it rerenders and replaces only that interval.
@@ -165,11 +165,13 @@ The AI can read the existing source, edit only the affected scene or interval, r
 - Clean screenshots and recordings from local or remote applications.
 - AI-controlled clicks, form filling, key presses, hover, selection, scrolling, navigation, and mouse movement.
 - Recursive search across user-authorized local directories.
-- Music search through Openverse, including download and attribution manifests.
+- Music search through local folders and Openverse, including download and attribution manifests, without a default or fallback track.
+- Music comparison through loudness, energy-curve, peak, silence, waveform, and spectrogram analysis.
 - Footage search through Wikimedia Commons and, optionally, Pexels.
 - Image and asset search through Openverse, Wikimedia Commons, and, optionally, Pexels.
 - Openverse and Wikimedia require no API key. Pexels is free but requires `PEXELS_API_KEY`.
 - Images, SVG, vector paths, masks, gradients, filters, shaders, particles, Three.js, and video clips inside the same composition.
+- A searchable motion vocabulary spanning backgrounds, layouts, typography, product presentation, shapes, transitions, camera, cursors, particles, and effects; every item can be restyled, combined, or replaced with custom TypeScript.
 - Kinetic typography by block, line, word, or character, including tracking, blur, rise, wipe, typewriter, erase/rewrite, swaps, and typography-driven masks.
 - Non-destructive crop, resize, color treatment, blur/redaction, chroma removal, trim, speed, fades, volume, and mute.
 - Frame-evaluated music envelopes for precise entrances, drops, pauses, ducks, and fades without rerendering the visuals.
@@ -178,18 +180,18 @@ Online results can only be selected when their license is known and allowed. Eve
 
 ## MCP tools
 
-The server exposes 29 tools:
+The server exposes 32 tools:
 
 - Product: `inspect_saas`, `capture_saas`, `record_saas_flows`.
-- Music: `list_music`, `generate_music_library`, `search_music`, `download_music`, `mix_music`.
+- Music: `list_music`, `generate_music_library`, `search_music`, `download_music`, `analyze_music`, `mix_music`.
 - Free media: `search_free_videos`, `download_free_video`, `search_free_assets`, `download_free_asset`.
-- Advanced motion: `list_motion_capabilities`, `scaffold_advanced_video`, `list_advanced_video_files`, `read_advanced_video_file`, `save_advanced_video_file`, `patch_advanced_video_file`, `render_advanced_video`.
+- Motion composition: `list_motion_capabilities`, `search_motion_components`, `get_motion_component`, `scaffold_advanced_video`, `list_advanced_video_files`, `read_advanced_video_file`, `save_advanced_video_file`, `patch_advanced_video_file`, `render_advanced_video`.
 - Editing: `edit_capture_image`, `edit_video`, `replace_video_range`.
-- Fast JSON engine: `validate_video_plan`, `render_video`.
+- Legacy JSON compatibility: `validate_video_plan`, `render_video`.
 - Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`.
 - Delivery: `clean_delivery_output`.
 
-The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` resource, and eight detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result.
+The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and nine detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result.
 
 ## CLI usage
 
@@ -203,11 +205,13 @@ node plugins/ai-promo-video/dist/cli.js record ./capture.local.json
 
 # Search for free music and media
 node plugins/ai-promo-video/dist/cli.js music:search "focused technology" --provider openverse
+node plugins/ai-promo-video/dist/cli.js music:analyze ./music/candidate.mp3 --review-dir ./music-review
 node plugins/ai-promo-video/dist/cli.js video:search --query "software team" --provider all --orientation landscape
 node plugins/ai-promo-video/dist/cli.js asset:search --query "abstract technology" --provider all --kind image
 
 # Create and render unrestricted motion
 node plugins/ai-promo-video/dist/cli.js motion:capabilities
+node plugins/ai-promo-video/dist/cli.js motion:search --query "camera follows interface assembly" --categories camera,product
 node plugins/ai-promo-video/dist/cli.js advanced:init ./advanced --name "Launch promo"
 node plugins/ai-promo-video/dist/cli.js advanced:render ./advanced/project.tsx --output ./output/promo.mp4
 
@@ -229,14 +233,14 @@ plugins/ai-promo-video/
 ├── src/mcp/server.ts                 server and agent contract
 ├── src/install.ts                    universal installer
 ├── src/capture/                      product inspection and recording
-├── src/advanced/                     editable Revideo projects
+├── src/advanced/                     motion catalog and editable Revideo projects
 ├── src/media/                        editing and incremental revisions
 ├── src/library/                      local and online free-media search
-├── assets/revideo-template/          reusable motion primitives
+├── assets/revideo-template/          neutral scaffold and reusable motion primitives
 └── skills/create-ai-promo-video/     direction, workflow, and QA criteria
 ```
 
-The JSON engine remains available for deliberately simple or fast jobs. For campaign-level results and After Effects-like motion, the Skill directs the AI to use the advanced engine.
+The JSON engine remains only for existing version 1 compatibility. New productions start directly as neutral Revideo compositions, whether they use mostly library primitives or extensive custom code.
 
 ## Licensing and privacy
 

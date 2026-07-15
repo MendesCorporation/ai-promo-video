@@ -5,6 +5,7 @@ import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ffmpegPathValue from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
+import { motionComponentLibrary, motionLibrarySummary } from './library.js';
 
 const require = createRequire(import.meta.url);
 
@@ -16,12 +17,14 @@ export interface AdvancedProjectResult {
 
 export const motionCapabilities = {
   engine: 'Revideo 0.11 (MIT)',
+  selectionRule: 'Capabilities and recipes are possibilities. Start with the current story and art direction; no technique, palette, layout, camera move, or media type is required.',
   primitives: ['Rect', 'Circle', 'Polygon', 'Line', 'Spline', 'Path', 'SVG', 'Img', 'Video', 'Audio', 'Txt', 'Layout', 'Grid', 'Rive'],
   animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'scene transitions', 'path drawing', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography'],
   effects: ['blur', 'brightness', 'contrast', 'hue', 'saturation', 'shadows', 'blend modes', 'masks', 'shaders'],
   threeD: ['Three.js scenes', 'perspective cameras', 'textured product screens', 'lights', 'particles', 'depth and parallax'],
-  productPatterns: ['perspective screen reveal', 'cursor tour with click pulse', 'UI assembly', 'card stack', 'split screen', 'focus zoom', 'data visualization', 'measured text rows', 'text-driven transitions', 'kinetic manifesto', 'mandatory visual review pack'],
-  extensibility: 'The AI writes TypeScript scenes and may define new components, shaders, geometry, and timing for every video.',
+  exampleRecipes: ['footage-led emotional edit', 'continuous visual transformation', 'kinetic manifesto', 'perspective product reveal', 'focused cursor interaction', 'interface assembly', 'editorial split proof', 'data visualization', 'typography-driven transition', 'abstract procedural environment', 'true 3D product stage', 'mandatory visual review pack'],
+  componentLibrary: motionLibrarySummary,
+  extensibility: 'Every new production is one Revideo composition. The AI can combine library primitives and write custom TypeScript, shaders, geometry, and timing inside the same scene.',
 };
 
 function packageDirectory(name: string): string {
@@ -63,6 +66,10 @@ export async function scaffoldAdvancedProject(options: {
     .replaceAll('__HEIGHT__', String(options.height ?? 1080))
     .replaceAll('__FPS__', String(options.fps ?? 30));
   await writeFile(projectFile, content, 'utf8');
+  await writeFile(join(projectDir, 'motion-library.json'), JSON.stringify({
+    ...motionLibrarySummary,
+    components: motionComponentLibrary,
+  }, null, 2), 'utf8');
   return { projectDir, projectFile, sceneFile: join(projectDir, 'scene.tsx') };
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "ai-promo-video",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Create polished AI-directed promo videos from real product captures and licensed free media with a headless pipeline.",
   "author": {
     "name": "AI Promo Video contributors"
@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "AI Promo Video",
     "shortDescription": "AI-directed product capture and motion design",
-    "longDescription": "Search local folders, Openverse, Wikimedia Commons, and optional free-key Pexels for licensed free video, images, SVGs, animations, and music; record real products with Playwright; author unique Revideo and Three.js motion with the user's AI; edit media, render only changed ranges, splice revisions, and inspect the final video without a graphical editor or bundled model.",
+    "longDescription": "Search a broad motion-component vocabulary plus local folders, Openverse, Wikimedia Commons, and optional free-key Pexels; compare and analyze licensed free music without a default track; record real products with Playwright; combine reusable and custom Revideo or Three.js motion in one editable composition; render changed ranges, splice revisions, and inspect the final video without a graphical editor or bundled model.",
     "developerName": "AI Promo Video contributors",
     "category": "Creative",
     "capabilities": ["Interactive", "Write"],

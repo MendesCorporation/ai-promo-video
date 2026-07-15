@@ -3,10 +3,12 @@ import { generateAudioLibrary } from './audio/generate-library.js';
 import { listAudioTracks } from './audio/catalog.js';
 import { downloadOpenverseMusic, searchOpenverseMusic } from './audio/openverse.js';
 import { searchLocalMusic } from './audio/search.js';
+import { analyzeMusic } from './audio/analyze.js';
 import { captureFromSpecFile, inspectSite, recordFromSpecFile } from './capture/capture.js';
 import { createVisualReviewPack, extractReviewFrames, probeVideo } from './render/probe.js';
 import { renderFromSpecFile } from './render/renderer.js';
 import { motionCapabilities, patchAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from './advanced/engine.js';
+import { motionComponentLibrary, searchMotionComponents, type MotionComponentCategory, type MotionEnergy } from './advanced/library.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from './media/edit.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos, type AssetSearchProvider, type VideoSearchProvider } from './library/search.js';
 import type { MediaOrientation } from './types.js';
@@ -64,7 +66,8 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       const maxDuration = typeof flags['max-duration'] === 'string' ? Number(flags['max-duration']) : undefined;
       const directories = typeof flags.dirs === 'string' ? flags.dirs.split(',').filter(Boolean) : [];
       const results = [];
-      if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories, minDuration, maxDuration, allowUnknownLicense: flags['allow-unknown-license'] === true }));
+      if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories, includeBundled: flags['include-bundled'] === true, minDuration, maxDuration, allowUnknownLicense: flags['allow-unknown-license'] === true }));
+      if (provider === 'bundled') results.push(...await searchLocalMusic({ query, includeBundled: true, minDuration, maxDuration }));
       if (provider === 'all' || provider === 'openverse') {
         if (!query) throw new Error('Online music search requires --query');
         results.push(...await searchOpenverseMusic({ query, minDuration, maxDuration, source: typeof flags.source === 'string' ? flags.source : undefined }));
@@ -76,6 +79,11 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       if (!id) throw new Error('Usage: ai-promo music:download <openverse-id> --output-dir <dir>');
       const outputDir = typeof flags['output-dir'] === 'string' ? flags['output-dir'] : './music';
       return downloadOpenverseMusic(id, outputDir);
+    }
+    case 'music:analyze': {
+      const path = args[0];
+      if (!path) throw new Error('Usage: ai-promo music:analyze <audio-file> [--review-dir <dir>]');
+      return analyzeMusic(path, typeof flags['review-dir'] === 'string' ? flags['review-dir'] : undefined);
     }
     case 'video:search': {
       const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
@@ -139,6 +147,24 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
     }
     case 'motion:capabilities':
       return motionCapabilities;
+    case 'motion:search': {
+      const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
+      return searchMotionComponents({
+        query: query || undefined,
+        categories: typeof flags.categories === 'string' ? flags.categories.split(',').filter(Boolean) as MotionComponentCategory[] : undefined,
+        tags: typeof flags.tags === 'string' ? flags.tags.split(',').filter(Boolean) : undefined,
+        moods: typeof flags.moods === 'string' ? flags.moods.split(',').filter(Boolean) : undefined,
+        energy: typeof flags.energy === 'string' ? flags.energy.split(',').filter(Boolean) as MotionEnergy[] : undefined,
+        limit: typeof flags.limit === 'string' ? Number(flags.limit) : undefined,
+      });
+    }
+    case 'motion:get': {
+      const id = args[0];
+      if (!id) throw new Error('Usage: ai-promo motion:get <component-id>');
+      const found = motionComponentLibrary.find((item) => item.id === id);
+      if (!found) throw new Error(`Unknown motion component: ${id}`);
+      return found;
+    }
     case 'advanced:init': {
       const outputDir = args[0];
       if (!outputDir) throw new Error('Usage: ai-promo advanced:init <directory> --name <name>');

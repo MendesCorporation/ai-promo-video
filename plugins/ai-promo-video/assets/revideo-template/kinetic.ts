@@ -122,7 +122,7 @@ export interface GradientSweepOptions {
 
 /** Sweep a live gradient through text without rasterizing it. */
 export function gradientSweep(ref: Reference<Txt>, duration: number, options: GradientSweepOptions = {}) {
-  const colors = options.colors ?? ['#7c3aed', '#f472d0', '#58d7c4', '#7c3aed'];
+  const colors = options.colors ?? ['#ffffff', '#a3a3a3', '#ffffff'];
   const span = options.span ?? 560;
   const direction = options.direction ?? 1;
   const start = -span * direction;

@@ -50,23 +50,25 @@ function matches(result: MusicSearchResult, query?: string): boolean {
 export async function searchLocalMusic(options: {
   query?: string;
   directories?: string[];
+  includeBundled?: boolean;
   allowUnknownLicense?: boolean;
   minDuration?: number;
   maxDuration?: number;
 } = {}): Promise<MusicSearchResult[]> {
-  const catalog = await loadAudioCatalog();
-  const bundled = await Promise.all(catalog.tracks.map(async (track): Promise<MusicSearchResult> => ({
-    provider: 'bundled',
-    id: track.id,
-    title: track.title,
-    duration: await duration(join(audioDirectory(), track.file)),
-    license: track.license,
-    licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
-    attribution: `${track.title} — AI Promo Video contributors — CC0-1.0`,
-    tags: track.mood,
-    localPath: join(audioDirectory(), track.file),
-    selectable: true,
-  })));
+  const bundled = options.includeBundled === true
+    ? await Promise.all((await loadAudioCatalog()).tracks.map(async (track): Promise<MusicSearchResult> => ({
+      provider: 'bundled',
+      id: track.id,
+      title: track.title,
+      duration: await duration(join(audioDirectory(), track.file)),
+      license: track.license,
+      licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+      attribution: `${track.title} — AI Promo Video contributors — CC0-1.0`,
+      tags: track.mood,
+      localPath: join(audioDirectory(), track.file),
+      selectable: true,
+    })))
+    : [];
 
   const local: MusicSearchResult[] = [];
   for (const directory of options.directories ?? []) {
@@ -89,7 +91,7 @@ export async function searchLocalMusic(options: {
     }
   }
 
-  return [...bundled, ...local].filter((result) => matches(result, options.query)
+  return [...(options.includeBundled === true ? bundled : []), ...local].filter((result) => matches(result, options.query)
     && (options.minDuration === undefined || (result.duration ?? 0) >= options.minDuration)
     && (options.maxDuration === undefined || (result.duration ?? Infinity) <= options.maxDuration));
 }

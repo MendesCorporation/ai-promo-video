@@ -8,7 +8,7 @@ export default makeProject({
   settings: {
     shared: {
       size: {x: __WIDTH__, y: __HEIGHT__},
-      background: '#070910',
+      background: '#000000',
     },
     rendering: {fps: __FPS__},
     preview: {fps: __FPS__},

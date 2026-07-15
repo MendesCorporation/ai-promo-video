@@ -90,7 +90,7 @@ const visualChecklist = [
   'Compare frames immediately before, during, and after every transition for flashes, jumps, stale layers, or mismatched direction.',
   'Verify camera scale, rotation, perspective, and motion blur preserve hierarchy and legibility.',
   'Verify cursor paths, click responses, card assembly, masks, particles, and UI states have a visible cause and clean result.',
-  'Confirm the final CTA is stable, readable, centered, and held long enough.',
+  'Confirm the final CTA or intentional resolution is stable, readable, composed according to the art direction, and held long enough.',
   'Treat black, frozen, or silent segments as review candidates, not automatic failures; decide from the intended direction.',
 ];
 

@@ -8,6 +8,7 @@ import type { ContentBlock } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { generateAudioLibrary } from '../audio/generate-library.js';
 import { listAudioTracks } from '../audio/catalog.js';
+import { analyzeMusic } from '../audio/analyze.js';
 import { downloadOpenverseMusic, searchOpenverseMusic } from '../audio/openverse.js';
 import { searchLocalMusic } from '../audio/search.js';
 import { captureFromSpecFile, inspectSite, recordFromSpecFile } from '../capture/capture.js';
@@ -15,6 +16,7 @@ import { createVisualReviewPack, extractReviewFrames, probeVideo } from '../rend
 import { renderFromSpecFile } from '../render/renderer.js';
 import { validateSpec } from '../commands.js';
 import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, saveAdvancedProjectFile, scaffoldAdvancedProject } from '../advanced/engine.js';
+import { motionComponentCategories, motionComponentLibrary, motionLibrarySummary, searchMotionComponents } from '../advanced/library.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from '../media/edit.js';
 import { cleanDeliveryOutput } from '../media/cleanup.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos } from '../library/search.js';
@@ -23,6 +25,7 @@ const skillDirectory = fileURLToPath(new URL('../../skills/create-ai-promo-video
 const directorGuide = await readFile(join(skillDirectory, 'SKILL.md'), 'utf8');
 const referenceNames = [
   'advanced-motion',
+  'component-library',
   'capture-spec',
   'free-media-sourcing',
   'motion-quality',
@@ -34,9 +37,9 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.1.0',
+  version: '0.2.0',
 }, {
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. For cinematic or After Effects-like work, use the advanced Revideo tools. Before delivery: preserve license metadata, call create_visual_review_pack, inspect every generated sheet with read_visual_files, correct material anomalies, probe again, and use clean_delivery_output so only requested deliverables remain. Read ai-promo://director-guide or invoke the create-ai-promo-video prompt for the complete workflow.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. Read ai-promo://director-guide or invoke the create-ai-promo-video prompt for the complete workflow.',
 });
 
 function response(value: unknown) {
@@ -48,6 +51,16 @@ server.registerResource('ai-promo-director-guide', 'ai-promo://director-guide', 
   description: 'Complete professional directing workflow shared by Codex, Claude, Cursor, and other MCP clients.',
   mimeType: 'text/markdown',
 }, async (uri) => ({ contents: [{ uri: uri.href, mimeType: 'text/markdown', text: directorGuide }] }));
+
+server.registerResource('ai-promo-motion-library', 'ai-promo://motion-library', {
+  title: 'AI Promo Video Motion Component Library',
+  description: 'Searchable, non-prescriptive vocabulary of reusable motion systems available in every scaffolded Revideo composition.',
+  mimeType: 'application/json',
+}, async (uri) => ({ contents: [{
+  uri: uri.href,
+  mimeType: 'application/json',
+  text: JSON.stringify({ ...motionLibrarySummary, components: motionComponentLibrary }, null, 2),
+}] }));
 
 for (const referenceName of referenceNames) {
   server.registerResource(`ai-promo-${referenceName}`, `ai-promo://references/${referenceName}`, {
@@ -105,7 +118,7 @@ server.registerTool('record_saas_flows', {
 
 server.registerTool('list_music', {
   title: 'List Open Music',
-  description: 'List bundled, attribution-free CC0 instrumental tracks by mood and intensity.',
+  description: 'Explicitly browse the bundled CC0 instrumental tracks by mood and intensity. These are optional candidates, not defaults or recommendations.',
   inputSchema: {
     mood: z.string().optional(),
     maxIntensity: z.number().min(0).max(1).optional(),
@@ -120,19 +133,21 @@ server.registerTool('generate_music_library', {
 
 server.registerTool('search_music', {
   title: 'Search Free Music',
-  description: 'Search bundled/local files and Openverse for music with commercial-friendly CC0, public-domain, or CC BY licenses.',
+  description: 'Search user-selected local folders and Openverse for music with commercial-friendly CC0, public-domain, or CC BY licenses. Bundled tracks are excluded unless explicitly requested; result order is not a recommendation.',
   inputSchema: {
     query: z.string().optional(),
-    provider: z.enum(['all', 'local', 'openverse']).default('all'),
+    provider: z.enum(['all', 'local', 'bundled', 'openverse']).default('all'),
     localDirectories: z.array(z.string()).optional(),
+    includeBundled: z.boolean().default(false),
     source: z.string().optional(),
     minDuration: z.number().nonnegative().optional(),
     maxDuration: z.number().positive().optional(),
     allowUnknownLocalLicense: z.boolean().default(false),
   },
-}, async ({ query, provider, localDirectories, source, minDuration, maxDuration, allowUnknownLocalLicense }) => {
+}, async ({ query, provider, localDirectories, includeBundled, source, minDuration, maxDuration, allowUnknownLocalLicense }) => {
   const results = [];
-  if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories: localDirectories, minDuration, maxDuration, allowUnknownLicense: allowUnknownLocalLicense }));
+  if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories: localDirectories, includeBundled, minDuration, maxDuration, allowUnknownLicense: allowUnknownLocalLicense }));
+  if (provider === 'bundled') results.push(...await searchLocalMusic({ query, includeBundled: true, minDuration, maxDuration }));
   if (provider === 'all' || provider === 'openverse') {
     if (!query) throw new Error('Openverse search requires a query');
     results.push(...await searchOpenverseMusic({ query, source, minDuration, maxDuration }));
@@ -148,6 +163,15 @@ server.registerTool('download_music', {
     outputDir: z.string().min(1),
   },
 }, async ({ openverseId, outputDir }) => response(await downloadOpenverseMusic(openverseId, outputDir)));
+
+server.registerTool('analyze_music', {
+  title: 'Analyze Music Candidate',
+  description: 'Measure one local candidate\'s duration, loudness, energy curve, peak-energy times, and silence; optionally generate waveform and spectrogram images for comparison. This does not recommend or select a track.',
+  inputSchema: {
+    path: z.string().min(1),
+    reviewDir: z.string().optional(),
+  },
+}, async ({ path, reviewDir }) => response(await analyzeMusic(path, reviewDir)));
 
 server.registerTool('search_free_videos', {
   title: 'Search Free Video Footage',
@@ -226,14 +250,14 @@ server.registerTool('mix_music', {
 }, async (options) => response(await mixMusic(options)));
 
 server.registerTool('validate_video_plan', {
-  title: 'Validate Video Plan',
-  description: 'Validate a video JSON plan, including exact scene timing and supported motion primitives.',
+  title: 'Validate Legacy JSON Video Plan',
+  description: 'Validate an existing v1 fixed-layout JSON plan for compatibility. Do not use this format as a draft or template for a new production.',
   inputSchema: { specPath: z.string().min(1) },
 }, async ({ specPath }) => response(await validateSpec(specPath, 'video')));
 
 server.registerTool('render_video', {
-  title: 'Render Promo Video',
-  description: 'Render a professional deterministic MP4 from a validated JSON video plan with Chromium and FFmpeg.',
+  title: 'Render Legacy JSON Video',
+  description: 'Compatibility renderer for an existing v1 fixed-layout JSON video. New productions must be authored directly as Revideo compositions and must not render this first as a disposable template.',
   inputSchema: {
     specPath: z.string().min(1),
     workers: z.number().int().min(1).max(12).optional(),
@@ -304,14 +328,40 @@ server.registerTool('read_visual_files', {
 });
 
 server.registerTool('list_motion_capabilities', {
-  title: 'List Advanced Motion Capabilities',
-  description: 'List the open-source Revideo motion primitives, effects, 3D features, and SaaS animation patterns available to the AI.',
+  title: 'List Motion Composition Capabilities',
+  description: 'List the open-source Revideo primitives, effects, component-library scope, 3D features, and custom TypeScript escape hatches available in every new production.',
   inputSchema: {},
 }, async () => response(motionCapabilities));
 
+server.registerTool('search_motion_components', {
+  title: 'Search Motion Components',
+  description: 'Search the reusable motion vocabulary by narrative need, category, mood, tags, or energy. Results are building blocks and recipes, never a default template or required visual style.',
+  inputSchema: {
+    query: z.string().optional(),
+    categories: z.array(z.enum(motionComponentCategories)).max(10).optional(),
+    tags: z.array(z.string().min(1)).max(12).optional(),
+    moods: z.array(z.string().min(1)).max(12).optional(),
+    energy: z.array(z.enum(['quiet', 'measured', 'energetic', 'impact'])).max(4).optional(),
+    limit: z.number().int().min(1).max(100).default(12),
+  },
+}, async (options) => {
+  const components = searchMotionComponents(options);
+  return response({ intent: 'possibilities, not recommendations', count: components.length, components });
+});
+
+server.registerTool('get_motion_component', {
+  title: 'Get Motion Component',
+  description: 'Get full composition notes, source exports, and parameters for one component before combining or customizing it in a Revideo scene.',
+  inputSchema: { id: z.string().min(1) },
+}, async ({ id }) => {
+  const found = motionComponentLibrary.find((item) => item.id === id);
+  if (!found) throw new Error(`Unknown motion component: ${id}`);
+  return response(found);
+});
+
 server.registerTool('scaffold_advanced_video', {
-  title: 'Scaffold Advanced Video',
-  description: 'Create a code-first Revideo project that the host AI can make completely unique with shapes, UI assembly, cursor motion, SVG, media, and 3D.',
+  title: 'Scaffold Revideo Composition',
+  description: 'Create the neutral code-first project used for every new production. It includes a searchable component catalog and source primitives but no predesigned scene, palette, cards, copy, or music choice.',
   inputSchema: {
     outputDir: z.string().min(1),
     name: z.string().min(1),
@@ -357,8 +407,8 @@ server.registerTool('patch_advanced_video_file', {
 }, async ({ projectDir, relativePath, patches }) => response(await patchAdvancedProjectFile(projectDir, relativePath, patches)));
 
 server.registerTool('render_advanced_video', {
-  title: 'Render Advanced Video',
-  description: 'Headlessly render a completely custom Revideo TypeScript project, optionally rendering only a changed time range. Telemetry is disabled.',
+  title: 'Render Revideo Composition',
+  description: 'Headlessly render the library-first and custom TypeScript composition, optionally rendering only a changed time range. Telemetry is disabled.',
   inputSchema: {
     projectFile: z.string().min(1),
     output: z.string().regex(/\.mp4$/),

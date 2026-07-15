@@ -1,6 +1,6 @@
 # Professional Motion Quality Bar
 
-The minimum bar is a strong studio promo, not an automated slideshow. A reference-quality result combines typography, abstract depth, continuous camera logic, real product surfaces, focused interaction, compositing, and intentional sound. If the supplied reference is stronger, match or exceed it scene by scene.
+The minimum bar is a strong studio promo, not an automated slideshow. A reference-quality result uses the dimensions relevant to its story—such as typography, depth, camera logic, product surfaces, human footage, interaction, compositing, or intentional sound—with professional control. It does not need every technique. If the supplied reference is stronger, match or exceed its relevant qualities scene by scene.
 
 ## Composition and depth
 
@@ -9,6 +9,7 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 - Build depth with scale, parallax, lighting, blur, shadows, masks, particles, or true 3D; flat layers alone rarely meet the bar.
 - Use screenshots and recordings as textures inside designed frames, not as unexplained full-screen media.
 - Alternate compositions and scale. Repeating centered title plus card layouts reads as a template.
+- Reject unexplained repetition from previous productions: the same palette, background motif, card count, camera path, typography entrance, beat order, or transition family is an originality defect when the brief does not justify it.
 
 ## Motion language
 
@@ -19,6 +20,7 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 - Perspective screens need consistent vanishing direction, readable texture, edge treatment, and appropriate shadow or light falloff.
 - Use motion blur or directional blur for fast travel, but never to hide weak timing.
 - Time major transitions to musical phrases or accents, not arbitrary equal intervals.
+- Keep camera motion alive through a perspective shot: arrive at a focus, follow the interaction, then reframe or exit. A fixed tilted screen is not a camera move.
 
 ## Product proof
 
@@ -30,4 +32,4 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 
 Generate a fresh visual review pack after every full render and after every revised range. Load every returned overview sheet and dense transition strip with `read_visual_files`, plus cursor-down and post-click states. Compare the settled frame against the moving states; expressive tracking, blur, or displacement must not remain accidentally active.
 
-Reject any render with disconnected word spacing, poor logo lockup gaps, unintended tracking, collisions, orphaned line breaks, clipped text, tiny or soft product UI, broken z-order, flashes between scenes, mismatched camera direction, arbitrary decoration, frozen-feeling motion, audio jumps, license ambiguity, or a CTA that disappears before it can be read. Correct material issues and regenerate the pack before delivery.
+Reject any render with disconnected word spacing, poor logo lockup gaps, unintended tracking, collisions, orphaned line breaks, clipped text, tiny or soft product UI, broken z-order, flashes between scenes, mismatched camera direction, arbitrary decoration, frozen-feeling motion, audio jumps, license ambiguity, or a final CTA/resolution that disappears before it can be understood. Correct material issues and regenerate the pack before delivery.
