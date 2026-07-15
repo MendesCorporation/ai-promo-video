@@ -19,6 +19,7 @@ export interface InstallOptions {
 
 const serverName = 'ai-promo-video';
 const skillName = 'create-ai-promo-video';
+export const runtimeEntries = ['dist', 'assets', 'scripts', 'skills', '.codex-plugin', '.mcp.json', 'package.json'] as const;
 
 export function installUsage(): string {
   return `AI Promo Video universal installer
@@ -215,7 +216,7 @@ async function copyRuntime(sourceRoot: string, runtimeDir: string, options: Inst
   }
   await rm(staging, { recursive: true, force: true });
   await mkdir(staging, { recursive: true });
-  for (const entry of ['dist', 'assets', 'skills', '.codex-plugin', '.mcp.json', 'package.json']) {
+  for (const entry of runtimeEntries) {
     const source = join(sourceRoot, entry);
     if (await exists(source)) await cp(source, join(staging, entry), { recursive: true });
   }

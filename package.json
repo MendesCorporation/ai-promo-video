@@ -1,6 +1,6 @@
 {
   "name": "ai-promo-video-monorepo",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "repository": {
@@ -30,7 +30,6 @@
     "plugins/*"
   ],
   "scripts": {
-    "postinstall": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs",
     "revideo:patch": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs",
     "revideo:patch:check": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs --check",
     "test:revideo-shader": "npm run test:revideo-shader --workspace=@ai-promo-video/core",

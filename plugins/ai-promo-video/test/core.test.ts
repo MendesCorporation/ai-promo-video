@@ -23,6 +23,7 @@ import {
   defaultRuntimeDir,
   parseInstallArgs,
   parseWindowsWhereOutput,
+  runtimeEntries,
   windowsClaudeDesktopStoreConfigPath,
   windowsCommandNeedsShell,
 } from '../src/install.js';
@@ -301,6 +302,14 @@ describe('adaptive formats and captions', () => {
 });
 
 describe('universal client installation', () => {
+  it('keeps the GitHub npx bootstrap free of runtime-only postinstall hooks', async () => {
+    const rootPackage = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
+    const runtimePackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
+    expect(rootPackage.scripts).not.toHaveProperty('postinstall');
+    expect(runtimePackage.scripts?.postinstall).toBe('node scripts/apply-revideo-patches.mjs');
+    expect(runtimeEntries).toContain('scripts');
+  });
+
   it('selects clients and safety flags from one npx-compatible command', () => {
     expect(parseInstallArgs(['install']).clients).toEqual(['codex', 'claude-code', 'claude-desktop', 'cursor']);
     expect(parseInstallArgs(['install', '--clients', 'codex,cursor', '--dry-run'])).toMatchObject({
