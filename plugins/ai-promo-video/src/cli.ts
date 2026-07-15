@@ -23,7 +23,7 @@ Commands:
   motion:search --query "camera follows interface assembly" [--categories camera,product --energy measured,impact]
   motion:get <component-id>
   advanced:init <directory> --name "Product promo" [--width 1920 --height 1080 --fps 30]
-  advanced:render <project.tsx> --output <video.mp4> [--workers 1] [--start 10 --end 16]
+  advanced:render <project.tsx> --output <video.mp4> [--workers 1] [--start 10 --end 16] [--startup-timeout 120 --stall-timeout 300 --max-render-time 7200]
   advanced:patch <project-dir> <relative-file> <patches.json>
   image:edit <edit.json>
   video:edit <edit.json>

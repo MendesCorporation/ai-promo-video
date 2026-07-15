@@ -37,8 +37,9 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.2.0',
+  version: '0.2.1',
 }, {
+  capabilities: { logging: {} },
   instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. Read ai-promo://director-guide or invoke the create-ai-promo-video prompt for the complete workflow.',
 });
 
@@ -408,7 +409,7 @@ server.registerTool('patch_advanced_video_file', {
 
 server.registerTool('render_advanced_video', {
   title: 'Render Revideo Composition',
-  description: 'Headlessly render the library-first and custom TypeScript composition, optionally rendering only a changed time range. Telemetry is disabled.',
+  description: 'Headlessly render the library-first and custom TypeScript composition in an isolated process group, with live phase/percentage updates, cancellation, timeout protection, and automatic Chromium/Vite cleanup. Optionally renders only a changed time range. Telemetry is disabled.',
   inputSchema: {
     projectFile: z.string().min(1),
     output: z.string().regex(/\.mp4$/),
@@ -418,8 +419,50 @@ server.registerTool('render_advanced_video', {
     height: z.number().int().min(360).max(2160).optional(),
     rangeStart: z.number().nonnegative().optional(),
     rangeEnd: z.number().positive().optional(),
+    startupTimeoutSeconds: z.number().int().min(10).max(900).default(120),
+    stallTimeoutSeconds: z.number().int().min(10).max(3600).default(300),
+    maxRenderSeconds: z.number().int().min(30).max(86400).default(7200),
   },
-}, async (options) => response(await renderAdvancedProject(options)));
+}, async ({ startupTimeoutSeconds, stallTimeoutSeconds, maxRenderSeconds, ...options }, extra) => {
+  let notifications = Promise.resolve();
+  const publishProgress = (update: Parameters<NonNullable<Parameters<typeof renderAdvancedProject>[0]['onProgress']>>[0]): void => {
+    notifications = notifications.then(async () => {
+      const progressToken = extra._meta?.progressToken;
+      if (progressToken !== undefined) {
+        await extra.sendNotification({
+          method: 'notifications/progress',
+          params: {
+            progressToken,
+            progress: Math.round(update.progress * 100),
+            total: 100,
+            message: update.message,
+          },
+        }).catch(() => undefined);
+      }
+      await server.sendLoggingMessage({
+        level: 'info',
+        logger: 'ai-promo-video.render',
+        data: {
+          phase: update.phase,
+          percent: Math.round(update.progress * 100),
+          message: update.message,
+          ...(update.worker === undefined ? {} : { worker: update.worker }),
+          ...(update.workers === undefined ? {} : { workers: update.workers }),
+        },
+      }, extra.sessionId).catch(() => undefined);
+    });
+  };
+  const result = await renderAdvancedProject({
+    ...options,
+    signal: extra.signal,
+    startupTimeoutMs: startupTimeoutSeconds * 1000,
+    stallTimeoutMs: stallTimeoutSeconds * 1000,
+    maxRenderTimeMs: maxRenderSeconds * 1000,
+    onProgress: publishProgress,
+  });
+  await notifications;
+  return response(result);
+});
 
 const cropSchema = z.object({ x: z.number().int().nonnegative(), y: z.number().int().nonnegative(), width: z.number().int().positive(), height: z.number().int().positive() });
 const resizeSchema = z.object({ width: z.number().int().positive(), height: z.number().int().positive(), fit: z.enum(['contain', 'cover', 'stretch']).default('contain'), background: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#000000') });

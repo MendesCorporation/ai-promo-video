@@ -186,6 +186,13 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         workers: typeof flags.workers === 'string' ? Number(flags.workers) : undefined,
         rangeStart: typeof flags.start === 'string' ? Number(flags.start) : undefined,
         rangeEnd: typeof flags.end === 'string' ? Number(flags.end) : undefined,
+        startupTimeoutMs: typeof flags['startup-timeout'] === 'string' ? Number(flags['startup-timeout']) * 1000 : undefined,
+        stallTimeoutMs: typeof flags['stall-timeout'] === 'string' ? Number(flags['stall-timeout']) * 1000 : undefined,
+        maxRenderTimeMs: typeof flags['max-render-time'] === 'string' ? Number(flags['max-render-time']) * 1000 : undefined,
+        onProgress: (update) => {
+          const percent = String(Math.round(update.progress * 100)).padStart(3, ' ');
+          process.stderr.write(`\r[ai-promo-video] ${percent}% ${update.message}${update.phase === 'complete' ? '\n' : ''}`);
+        },
       });
     }
     case 'advanced:patch': {

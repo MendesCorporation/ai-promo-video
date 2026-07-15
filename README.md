@@ -191,7 +191,7 @@ The server exposes 32 tools:
 - Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`.
 - Delivery: `clean_delivery_output`.
 
-The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and nine detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result.
+The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and nine detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
 
 ## CLI usage
 
@@ -255,4 +255,4 @@ npm run build
 npm test
 ```
 
-Rendering is deterministic for the same source, assets, versions, and platform. Revideo telemetry is disabled by the advanced renderer. Before delivery, the Skill requires duration and codec inspection, full-film sampling, transition review, and correction of visual anomalies.
+Rendering is deterministic for the same source, assets, versions, and platform. Revideo telemetry is disabled by the advanced renderer. The CLI prints live render progress to stderr while preserving the machine-readable result on stdout. Before delivery, the Skill requires duration and codec inspection, full-film sampling, transition review, and correction of visual anomalies.

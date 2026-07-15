@@ -15,6 +15,7 @@ import { CaptureSpecSchema, VideoSpecSchema } from '../src/types.js';
 import { validateSpec } from '../src/commands.js';
 import { cleanDeliveryOutput } from '../src/media/cleanup.js';
 import { parseInstallArgs } from '../src/install.js';
+import { aggregateWorkerProgress } from '../src/advanced/render-protocol.js';
 
 function plan() {
   return {
@@ -162,6 +163,13 @@ describe('application recording specs', () => {
 });
 
 describe('advanced project source', () => {
+  it('aggregates clamped progress across isolated renderer workers', () => {
+    expect(aggregateWorkerProgress(new Map([[0, 0.5], [1, 0.25]]), 2)).toBe(0.375);
+    expect(aggregateWorkerProgress(new Map([[0, 2], [1, -1]]), 2)).toBe(0.5);
+    expect(aggregateWorkerProgress(new Map([[1, 0.5]]), 2)).toBe(0.25);
+    expect(() => aggregateWorkerProgress(new Map(), 0)).toThrow(/positive integer/);
+  });
+
   it('scaffolds and patches one exact source fragment without recreating the project', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-promo-advanced-'));
     const project = await scaffoldAdvancedProject({ outputDir: directory, name: 'Unique launch' });
