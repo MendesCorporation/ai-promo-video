@@ -1,0 +1,22 @@
+{
+  "inputVideo": "examples/motion-benchmark/output/signalnest-motion-benchmark-visuals.mp4",
+  "music": "examples/motion-benchmark/music/synth/openverse-8c63e267-7389-440e-91a1-434a385306a3.mp3",
+  "output": "examples/motion-benchmark/output/signalnest-motion-benchmark-final-56s.mp4",
+  "baseVolume": 0.24,
+  "sourceOffset": 0,
+  "loop": true,
+  "preserveOriginalAudio": false,
+  "envelope": [
+    { "time": 0, "volume": 0 },
+    { "time": 0.8, "volume": 1 },
+    { "time": 25.5, "volume": 1 },
+    { "time": 27, "volume": 0 },
+    { "time": 28, "volume": 0 },
+    { "time": 28.5, "volume": 1 },
+    { "time": 40, "volume": 1 },
+    { "time": 41, "volume": 0.58 },
+    { "time": 42, "volume": 1 },
+    { "time": 55.3, "volume": 1 },
+    { "time": 56, "volume": 0 }
+  ]
+}

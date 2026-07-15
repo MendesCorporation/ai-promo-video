@@ -1,0 +1,12 @@
+{
+  "input": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-u-s-soldiers-participate-in-physical-training-assessment-during-basic-le-195466732.webm",
+  "output": "plugins/ai-promo-video/examples/auto-superacao/advanced/public/training.mp4",
+  "start": 14,
+  "end": 52.5,
+  "speed": 0.9,
+  "resize": {"width": 1920, "height": 1080, "fit": "cover", "background": "#000000"},
+  "color": {"brightness": -0.06, "contrast": 1.12, "saturation": 0.62, "gamma": 0.96},
+  "fadeIn": 0.35,
+  "fadeOut": 0.45,
+  "mute": true
+}

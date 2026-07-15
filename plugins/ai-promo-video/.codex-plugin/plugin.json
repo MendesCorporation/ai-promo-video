@@ -1,0 +1,27 @@
+{
+  "name": "ai-promo-video",
+  "version": "0.1.0",
+  "description": "Create polished AI-directed promo videos from real product captures and licensed free media with a headless pipeline.",
+  "author": {
+    "name": "AI Promo Video contributors"
+  },
+  "homepage": "https://github.com/MendesCorporation/ai-promo-video",
+  "repository": "https://github.com/MendesCorporation/ai-promo-video",
+  "license": "MIT",
+  "keywords": ["video", "saas", "motion-design", "stock-media", "openverse", "wikimedia", "playwright", "mcp"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AI Promo Video",
+    "shortDescription": "AI-directed product capture and motion design",
+    "longDescription": "Search local folders, Openverse, Wikimedia Commons, and optional free-key Pexels for licensed free video, images, SVGs, animations, and music; record real products with Playwright; author unique Revideo and Three.js motion with the user's AI; edit media, render only changed ranges, splice revisions, and inspect the final video without a graphical editor or bundled model.",
+    "developerName": "AI Promo Video contributors",
+    "category": "Creative",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": [
+      "Create a 30-second promo for my SaaS.",
+      "Capture my product and render a polished launch video.",
+      "Review this SaaS promo and improve its motion design."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

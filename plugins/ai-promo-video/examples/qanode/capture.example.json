@@ -1,0 +1,47 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "outputDir": "./captures",
+  "viewport": {
+    "width": 1600,
+    "height": 1000
+  },
+  "auth": {
+    "path": "/login",
+    "fields": [
+      {
+        "selector": "input[type='email']",
+        "value": "YOUR_LOCAL_EMAIL"
+      },
+      {
+        "selector": "input[type='password']",
+        "value": "YOUR_LOCAL_PASSWORD"
+      }
+    ],
+    "submit": "button[type='submit']",
+    "waitForUrl": "http://localhost:3000/"
+  },
+  "targets": [
+    {
+      "id": "dashboard",
+      "path": "/",
+      "waitFor": "text=Execuções Hoje",
+      "delayMs": 1000,
+      "actions": [
+        { "type": "click", "selector": "button:has-text('EN')", "delayMs": 200 },
+        { "type": "click", "selector": "text=Português", "delayMs": 500 }
+      ]
+    },
+    {
+      "id": "flows",
+      "path": "/flows",
+      "waitFor": "h1:has-text('Cenários')",
+      "delayMs": 1000
+    },
+    {
+      "id": "editor",
+      "path": "/editor/REPLACE_WITH_FLOW_ID",
+      "waitFor": "text=Preencher formulário demo",
+      "delayMs": 1200
+    }
+  ]
+}

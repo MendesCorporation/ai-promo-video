@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "tracks": [
+    {
+      "id": "quiet-precision",
+      "title": "Quiet Precision",
+      "file": "quiet-precision.wav",
+      "bpm": 96,
+      "mood": ["minimal", "calm", "technical", "premium"],
+      "intensity": 0.35,
+      "loopable": true,
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "signal-flow",
+      "title": "Signal Flow",
+      "file": "signal-flow.wav",
+      "bpm": 112,
+      "mood": ["modern", "confident", "technology", "focused"],
+      "intensity": 0.62,
+      "loopable": true,
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "launch-velocity",
+      "title": "Launch Velocity",
+      "file": "launch-velocity.wav",
+      "bpm": 124,
+      "mood": ["energetic", "launch", "optimistic", "bold"],
+      "intensity": 0.82,
+      "loopable": true,
+      "license": "CC0-1.0"
+    }
+  ]
+}

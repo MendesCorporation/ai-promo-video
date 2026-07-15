@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #070a12; }
+    body { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    #stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; color: var(--fg); background: var(--bg); }
+    .background { position: absolute; inset: 0; overflow: hidden; }
+    .background::before { content: ""; position: absolute; inset: -15%; background:
+      radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--accent) 38%, transparent) 0, transparent 30%),
+      radial-gradient(circle at 82% 72%, color-mix(in srgb, var(--accent2) 26%, transparent) 0, transparent 33%),
+      linear-gradient(145deg, color-mix(in srgb, var(--bg) 88%, #182449), var(--bg) 58%);
+      filter: saturate(1.08);
+    }
+    .background::after { content: ""; position: absolute; inset: 0; opacity: .2; background-image:
+      linear-gradient(color-mix(in srgb, var(--fg) 10%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--fg) 10%, transparent) 1px, transparent 1px);
+      background-size: 64px 64px; mask-image: linear-gradient(to bottom, black, transparent 76%);
+    }
+    .grain { position: absolute; inset: 0; opacity: .04; mix-blend-mode: screen; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E"); }
+    .scene { position: absolute; inset: 0; padding: 68px 82px; display: flex; flex-direction: column; transform-origin: 50% 50%; }
+    .brand { display: flex; align-items: center; gap: 14px; font-size: 23px; font-weight: 760; letter-spacing: -.02em; }
+    .brand img { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 10px 26px color-mix(in srgb, var(--accent) 30%, transparent)); }
+    .brand-dot { width: 16px; height: 16px; border-radius: 5px; background: linear-gradient(145deg, var(--accent), var(--accent2)); box-shadow: 0 0 38px color-mix(in srgb, var(--accent) 62%, transparent); }
+    .eyebrow { display: inline-flex; align-items: center; width: max-content; gap: 10px; padding: 9px 14px; border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent); border-radius: 99px; color: color-mix(in srgb, var(--fg) 88%, var(--accent)); background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 15px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 20px var(--accent2); }
+    h1 { margin: 0; max-width: 1180px; font-size: clamp(68px, 6.15vw, 118px); line-height: .95; letter-spacing: -.065em; font-weight: 780; white-space: pre-line; text-wrap: balance; }
+    h2 { margin: 0; max-width: 960px; font-size: clamp(48px, 4.2vw, 78px); line-height: .99; letter-spacing: -.052em; font-weight: 760; white-space: pre-line; text-wrap: balance; }
+    .gradient-text { background: linear-gradient(100deg, var(--fg) 12%, color-mix(in srgb, var(--accent) 72%, white), var(--accent2)); background-clip: text; -webkit-background-clip: text; color: transparent; }
+    .subtitle { max-width: 800px; margin: 0; font-size: 25px; line-height: 1.42; letter-spacing: -.018em; color: color-mix(in srgb, var(--fg) 67%, transparent); text-wrap: balance; }
+    .hero { justify-content: space-between; }
+    .hero-content { min-height: 720px; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+    .hero-accent { position: absolute; right: 8.5%; top: 23%; width: 320px; height: 320px; border-radius: 76px; transform: rotate(12deg); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent2) 7%, transparent)); box-shadow: inset 0 0 70px color-mix(in srgb, var(--accent) 12%, transparent), 0 42px 120px #0008; backdrop-filter: blur(20px); }
+    .hero-accent::before, .hero-accent::after { content: ""; position: absolute; border-radius: 50%; background: linear-gradient(145deg, var(--accent), var(--accent2)); box-shadow: 0 0 44px color-mix(in srgb, var(--accent) 55%, transparent); }
+    .hero-accent::before { width: 74px; height: 74px; left: 58px; top: 62px; }
+    .hero-accent::after { width: 132px; height: 24px; border-radius: 99px; left: 58px; top: 166px; opacity: .85; }
+    .product { gap: 28px; }
+    .product-copy { position: relative; z-index: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; }
+    .product-copy .titles { display: flex; flex-direction: column; gap: 16px; }
+    .product-copy .subtitle { max-width: 540px; font-size: 20px; padding-bottom: 4px; }
+    .browser { position: absolute; z-index: 2; left: 7.5%; right: 4.2%; top: 31%; bottom: -7%; overflow: hidden; border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent); border-radius: 24px 24px 0 0; background: #0c101b; box-shadow: 0 52px 150px #000b, 0 0 0 1px #ffffff08 inset; transform-origin: 50% 55%; }
+    .browser-bar { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 17px; background: linear-gradient(#1a1f2d, #121723); border-bottom: 1px solid #ffffff12; }
+    .browser-bar span { width: 9px; height: 9px; border-radius: 50%; background: #ffffff2c; }
+    .browser-address { margin-left: 12px; width: 38%; height: 21px; border-radius: 7px; background: #ffffff0a; border: 1px solid #ffffff0b; }
+    .browser-media { position: absolute; inset: 48px 0 0; overflow: hidden; background: #0b0f19; }
+    .browser-media img { width: 100%; height: 100%; object-fit: cover; object-position: center; transform-origin: var(--focus-x) var(--focus-y); }
+    .focus-ring { position: absolute; left: calc(var(--focus-x) - 42px); top: calc(var(--focus-y) - 42px); width: 84px; height: 84px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent2) 80%, white); box-shadow: 0 0 0 11px color-mix(in srgb, var(--accent2) 12%, transparent), 0 0 42px color-mix(in srgb, var(--accent2) 35%, transparent); opacity: 0; }
+    .features { justify-content: space-between; }
+    .features-copy { display: flex; flex-direction: column; gap: 22px; max-width: 980px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: auto; margin-bottom: 36px; }
+    .feature-card { min-height: 232px; padding: 30px; border: 1px solid #ffffff16; border-radius: 24px; background: linear-gradient(145deg, #ffffff0e, #ffffff04); box-shadow: 0 30px 80px #0005; backdrop-filter: blur(22px); display: flex; flex-direction: column; justify-content: space-between; }
+    .feature-index { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); color: color-mix(in srgb, var(--accent) 55%, white); font-weight: 800; }
+    .feature-card strong { font-size: 28px; line-height: 1.12; letter-spacing: -.03em; }
+    .metrics { gap: 24px; }
+    .metrics .browser { left: 4%; right: 39%; top: 16%; bottom: 10%; border-radius: 24px; }
+    .metrics-panel { position: absolute; z-index: 4; right: 6%; top: 19%; width: 36%; bottom: 12%; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+    .metrics-panel h2 { font-size: 66px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 14px; }
+    .metric { padding: 22px; border: 1px solid #ffffff17; border-radius: 20px; background: #ffffff0b; }
+    .metric-value { font-size: 39px; font-weight: 800; letter-spacing: -.045em; color: color-mix(in srgb, var(--accent2) 63%, white); }
+    .metric-label { margin-top: 7px; color: #ffffff82; font-size: 15px; }
+    .cta { align-items: center; justify-content: center; text-align: center; gap: 28px; }
+    .cta .brand { margin-bottom: 6px; }
+    .cta h1 { max-width: 1250px; font-size: 106px; }
+    .cta .subtitle { max-width: 720px; }
+    .cta-badge { margin-top: 12px; padding: 15px 24px; border-radius: 16px; font-size: 18px; font-weight: 750; letter-spacing: .025em; background: linear-gradient(100deg, var(--accent), color-mix(in srgb, var(--accent2) 70%, var(--accent))); box-shadow: 0 22px 70px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .progress { position: absolute; z-index: 12; left: 0; right: 0; bottom: 0; height: 4px; background: #ffffff0b; }
+    .progress > div { height: 100%; width: var(--video-progress); background: linear-gradient(90deg, var(--accent), var(--accent2)); box-shadow: 0 0 24px var(--accent); }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <script>
+    const spec = __VIDEO_SPEC__;
+    const stage = document.getElementById('stage');
+    let currentSceneIndex = -1;
+
+    const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+    const smooth = (value) => { const x = clamp(value); return x * x * (3 - 2 * x); };
+    const outCubic = (value) => 1 - Math.pow(1 - clamp(value), 3);
+    const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+
+    function brandMarkup() {
+      const mark = spec.brand.logo ? `<img src="${spec.brand.logo}" alt="" />` : '<span class="brand-dot"></span>';
+      return `<div class="brand">${mark}<span>${escapeHtml(spec.brand.name)}</span></div>`;
+    }
+
+    function mediaMarkup(scene) {
+      if (!scene.media) return '';
+      return `<div class="browser" data-motion="browser">
+        <div class="browser-bar"><span></span><span></span><span></span><div class="browser-address"></div></div>
+        <div class="browser-media"><img src="${scene.media}" alt="" data-motion="media"/><div class="focus-ring" data-motion="ring"></div></div>
+      </div>`;
+    }
+
+    function sceneMarkup(scene) {
+      const eyebrow = scene.eyebrow ? `<div class="eyebrow" data-motion="eyebrow">${escapeHtml(scene.eyebrow)}</div>` : '';
+      const subtitle = scene.subtitle ? `<p class="subtitle" data-motion="subtitle">${escapeHtml(scene.subtitle)}</p>` : '';
+      if (scene.type === 'hero') return `<div class="scene hero" data-scene>
+        ${brandMarkup()}
+        <div class="hero-content">${eyebrow}<h1 class="gradient-text" data-motion="title">${escapeHtml(scene.title)}</h1>${subtitle}</div>
+        <div class="hero-accent" data-motion="accent"></div>
+      </div>`;
+      if (scene.type === 'product') return `<div class="scene product" data-scene>
+        <div class="product-copy"><div class="titles">${eyebrow}<h2 data-motion="title">${escapeHtml(scene.title)}</h2></div>${subtitle}</div>
+        ${mediaMarkup(scene)}
+      </div>`;
+      if (scene.type === 'features') {
+        const cards = (scene.bullets || []).map((bullet, index) => `<div class="feature-card" data-motion="card" data-card="${index}"><div class="feature-index">0${index + 1}</div><strong>${escapeHtml(bullet)}</strong></div>`).join('');
+        return `<div class="scene features" data-scene>${brandMarkup()}<div class="features-copy">${eyebrow}<h2 class="gradient-text" data-motion="title">${escapeHtml(scene.title)}</h2>${subtitle}</div><div class="feature-grid">${cards}</div></div>`;
+      }
+      if (scene.type === 'metrics') {
+        const metrics = (scene.metrics || []).map((metric, index) => `<div class="metric" data-motion="metric" data-metric="${index}"><div class="metric-value">${escapeHtml(metric.value)}</div><div class="metric-label">${escapeHtml(metric.label)}</div></div>`).join('');
+        return `<div class="scene metrics" data-scene>${mediaMarkup(scene)}<div class="metrics-panel">${eyebrow}<h2 data-motion="title">${escapeHtml(scene.title)}</h2>${subtitle}<div class="metric-grid">${metrics}</div></div></div>`;
+      }
+      return `<div class="scene cta" data-scene>${brandMarkup()}${eyebrow}<h1 class="gradient-text" data-motion="title">${escapeHtml(scene.title)}</h1>${subtitle}${scene.badge ? `<div class="cta-badge" data-motion="badge">${escapeHtml(scene.badge)}</div>` : ''}</div>`;
+    }
+
+    function buildScene(scene, index) {
+      currentSceneIndex = index;
+      const focus = scene.focus || { x: .5, y: .5, scale: 1.08 };
+      stage.style.setProperty('--bg', spec.brand.background);
+      stage.style.setProperty('--fg', spec.brand.foreground);
+      stage.style.setProperty('--accent', spec.brand.accent);
+      stage.style.setProperty('--accent2', spec.brand.accent2);
+      stage.style.setProperty('--focus-x', `${focus.x * 100}%`);
+      stage.style.setProperty('--focus-y', `${focus.y * 100}%`);
+      stage.style.fontFamily = spec.brand.fontFamily;
+      stage.innerHTML = `<div class="background" data-motion="background"></div><div class="grain"></div>${sceneMarkup(scene)}<div class="progress"><div></div></div>`;
+    }
+
+    function locateScene(time) {
+      let cursor = 0;
+      for (let index = 0; index < spec.scenes.length; index += 1) {
+        const scene = spec.scenes[index];
+        if (time < cursor + scene.duration || index === spec.scenes.length - 1) return { scene, index, local: time - cursor };
+        cursor += scene.duration;
+      }
+    }
+
+    window.renderFrame = async (frame) => {
+      const time = frame / spec.fps;
+      const located = locateScene(time);
+      const scene = located.scene;
+      if (located.index !== currentSceneIndex) buildScene(scene, located.index);
+      const p = clamp(located.local / scene.duration);
+      const enter = outCubic(p / .17);
+      const exit = 1 - smooth((p - .86) / .14);
+      const visibility = Math.min(enter, exit);
+      const root = stage.querySelector('[data-scene]');
+      let tx = 0, scale = 1, clip = 'inset(0 0 0 0 round 0px)';
+      if (scene.transition === 'push') tx = (1 - enter) * 150 - (1 - exit) * 110;
+      if (scene.transition === 'zoom') scale = .91 + enter * .09 + (1 - exit) * .05;
+      if (scene.transition === 'wipe') clip = `inset(0 ${(1 - enter) * 100}% 0 0 round 20px)`;
+      root.style.opacity = visibility;
+      root.style.transform = `translate3d(${tx}px, ${(1 - enter) * 20}px, 0) scale(${scale})`;
+      root.style.clipPath = clip;
+
+      const background = stage.querySelector('[data-motion="background"]');
+      background.style.transform = `scale(${1.03 + p * .035}) translate3d(${Math.sin(p * Math.PI * 2) * 10}px, ${Math.cos(p * Math.PI * 1.5) * 8}px, 0)`;
+
+      const title = stage.querySelector('[data-motion="title"]');
+      if (title) {
+        const titleIn = outCubic((p - .035) / .18);
+        title.style.opacity = titleIn;
+        title.style.transform = `translate3d(0, ${(1 - titleIn) * 54}px, 0)`;
+        title.style.filter = `blur(${(1 - titleIn) * 11}px)`;
+      }
+      const eyebrow = stage.querySelector('[data-motion="eyebrow"]');
+      if (eyebrow) {
+        const eyebrowIn = outCubic(p / .14);
+        eyebrow.style.opacity = eyebrowIn;
+        eyebrow.style.transform = `translate3d(0, ${(1 - eyebrowIn) * 22}px, 0)`;
+      }
+      const subtitle = stage.querySelector('[data-motion="subtitle"]');
+      if (subtitle) {
+        const subtitleIn = outCubic((p - .1) / .2);
+        subtitle.style.opacity = subtitleIn;
+        subtitle.style.transform = `translate3d(0, ${(1 - subtitleIn) * 30}px, 0)`;
+      }
+      const accent = stage.querySelector('[data-motion="accent"]');
+      if (accent) accent.style.transform = `translate3d(0, ${Math.sin(p * Math.PI * 2) * 20}px, 0) rotate(${12 + p * 5}deg) scale(${.9 + enter * .1})`;
+
+      const browser = stage.querySelector('[data-motion="browser"]');
+      const media = stage.querySelector('[data-motion="media"]');
+      if (browser && media) {
+        const browserIn = outCubic((p - .06) / .22);
+        browser.style.opacity = browserIn;
+        browser.style.transform = `perspective(1600px) rotateX(${(1 - browserIn) * 8}deg) rotateY(${(1 - browserIn) * -5}deg) translate3d(0, ${(1 - browserIn) * 110}px, 0)`;
+        const focus = scene.focus || { x: .5, y: .5, scale: 1.08 };
+        const camera = smooth((p - .24) / .65);
+        media.style.transform = `scale(${1 + (focus.scale - 1) * camera}) translate3d(${(.5 - focus.x) * 8 * camera}%, ${(.5 - focus.y) * 8 * camera}%, 0)`;
+        const ring = stage.querySelector('[data-motion="ring"]');
+        if (ring) ring.style.opacity = scene.focus ? smooth((p - .45) / .16) * (1 - smooth((p - .76) / .12)) : 0;
+      }
+
+      for (const card of stage.querySelectorAll('[data-motion="card"]')) {
+        const index = Number(card.getAttribute('data-card'));
+        const cardIn = outCubic((p - .2 - index * .06) / .2);
+        card.style.opacity = cardIn;
+        card.style.transform = `translate3d(0, ${(1 - cardIn) * 76 + Math.sin((p + index) * Math.PI * 2) * 3}px, 0) scale(${.95 + cardIn * .05})`;
+      }
+      for (const metric of stage.querySelectorAll('[data-motion="metric"]')) {
+        const index = Number(metric.getAttribute('data-metric'));
+        const metricIn = outCubic((p - .25 - index * .05) / .18);
+        metric.style.opacity = metricIn;
+        metric.style.transform = `translate3d(${(1 - metricIn) * 42}px, 0, 0)`;
+      }
+      const badge = stage.querySelector('[data-motion="badge"]');
+      if (badge) {
+        const badgeIn = outCubic((p - .28) / .22);
+        badge.style.opacity = badgeIn;
+        badge.style.transform = `translate3d(0, ${(1 - badgeIn) * 32}px, 0) scale(${.9 + badgeIn * .1})`;
+      }
+
+      stage.style.setProperty('--video-progress', `${clamp(time / spec.duration) * 100}%`);
+      await Promise.all(Array.from(document.images).map((image) => image.complete ? Promise.resolve() : image.decode().catch(() => undefined)));
+    };
+  </script>
+</body>
+</html>

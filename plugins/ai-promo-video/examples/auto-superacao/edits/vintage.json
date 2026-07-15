@@ -1,0 +1,12 @@
+{
+  "input": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-newark-athlete-1891-webm-33741128.webm",
+  "output": "plugins/ai-promo-video/examples/auto-superacao/advanced/public/vintage-athlete.mp4",
+  "start": 0.35,
+  "end": 12.6,
+  "speed": 0.85,
+  "resize": {"width": 1920, "height": 1080, "fit": "cover", "background": "#000000"},
+  "color": {"brightness": -0.04, "contrast": 1.18, "saturation": 0, "gamma": 0.94},
+  "fadeIn": 0.35,
+  "fadeOut": 0.4,
+  "mute": true
+}

@@ -1,0 +1,55 @@
+[
+  {
+    "provider": "wikimedia",
+    "kind": "video",
+    "id": "70810210",
+    "title": "Drone Footage of People Climbing Ice Formation.webm",
+    "creator": "Thomas Tapp",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "attribution": "Drone Footage of People Climbing Ice Formation.webm — Thomas Tapp — CC0",
+    "requiresAttribution": false,
+    "requiresShareAlike": false,
+    "landingUrl": "https://commons.wikimedia.org/wiki/File:Drone_Footage_of_People_Climbing_Ice_Formation.webm",
+    "localPath": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-drone-footage-of-people-climbing-ice-formation-webm-70810210.webm"
+  },
+  {
+    "provider": "wikimedia",
+    "kind": "video",
+    "id": "165926133",
+    "title": "Time lapse view from London Peak Scenic Overlook, looking north across the Wolf Creek watershed, May 2, 2017, by Greg Shine, BLM (34291969762).webm",
+    "creator": "BLM Oregon & Washington",
+    "license": "Public domain",
+    "attribution": "Time lapse view from London Peak Scenic Overlook, looking north across the Wolf Creek watershed, May 2, 2017, by Greg Shine, BLM (34291969762).webm — BLM Oregon & Washington — Public domain",
+    "requiresAttribution": false,
+    "requiresShareAlike": false,
+    "landingUrl": "https://commons.wikimedia.org/wiki/File:Time_lapse_view_from_London_Peak_Scenic_Overlook,_looking_north_across_the_Wolf_Creek_watershed,_May_2,_2017,_by_Greg_Shine,_BLM_(34291969762).webm",
+    "localPath": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-time-lapse-view-from-london-peak-scenic-overlook-looking-north-across-th-165926133.webm"
+  },
+  {
+    "provider": "wikimedia",
+    "kind": "video",
+    "id": "33741128",
+    "title": "Newark Athlete (1891).webm",
+    "creator": "William K. L. Dickson",
+    "license": "Public domain",
+    "attribution": "Newark Athlete (1891).webm — William K. L. Dickson — Public domain",
+    "requiresAttribution": false,
+    "requiresShareAlike": false,
+    "landingUrl": "https://commons.wikimedia.org/wiki/File:Newark_Athlete_(1891).webm",
+    "localPath": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-newark-athlete-1891-webm-33741128.webm"
+  },
+  {
+    "provider": "wikimedia",
+    "kind": "video",
+    "id": "195466732",
+    "title": "U S Soldiers participate in Physical Training Assessment during Basic Leadership Course (957149).webm",
+    "creator": "U.S. Army 105MPAD by Pfc. Jolene Cintron",
+    "license": "Public domain",
+    "attribution": "U S Soldiers participate in Physical Training Assessment during Basic Leadership Course (957149).webm — U.S. Army 105MPAD by Pfc. Jolene Cintron — Public domain",
+    "requiresAttribution": false,
+    "requiresShareAlike": false,
+    "landingUrl": "https://commons.wikimedia.org/wiki/File:U_S_Soldiers_participate_in_Physical_Training_Assessment_during_Basic_Leadership_Course_(957149).webm",
+    "localPath": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-u-s-soldiers-participate-in-physical-training-assessment-during-basic-le-195466732.webm"
+  }
+]

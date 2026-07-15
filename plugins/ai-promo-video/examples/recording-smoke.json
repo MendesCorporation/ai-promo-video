@@ -1,0 +1,22 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "outputDir": "./recording-smoke-output",
+  "viewport": { "width": 1280, "height": 800 },
+  "recordings": [
+    {
+      "id": "login-motion",
+      "path": "/login",
+      "waitFor": "input[type='email']",
+      "settleMs": 250,
+      "preRollMs": 250,
+      "postRollMs": 300,
+      "pointer": "hidden",
+      "actions": [
+        { "type": "mouse", "x": 520, "y": 300, "steps": 18, "delayMs": 150 },
+        { "type": "scroll", "deltaY": 120, "delayMs": 150 },
+        { "type": "scroll", "deltaY": -120, "delayMs": 150 },
+        { "type": "wait", "ms": 300 }
+      ]
+    }
+  ]
+}

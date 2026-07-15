@@ -1,0 +1,41 @@
+{
+  "name": "ai-promo-video-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MendesCorporation/ai-promo-video.git"
+  },
+  "homepage": "https://github.com/MendesCorporation/ai-promo-video#readme",
+  "bugs": {
+    "url": "https://github.com/MendesCorporation/ai-promo-video/issues"
+  },
+  "bin": {
+    "ai-promo-video": "./plugins/ai-promo-video/dist/install.js"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "plugins/ai-promo-video/package.json",
+    "plugins/ai-promo-video/dist",
+    "plugins/ai-promo-video/assets",
+    "plugins/ai-promo-video/skills",
+    "plugins/ai-promo-video/.codex-plugin",
+    "plugins/ai-promo-video/.mcp.json"
+  ],
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@ai-promo-video/core",
+    "test": "npm run test --workspace=@ai-promo-video/core",
+    "setup": "npm install && npm run browser:install --workspace=@ai-promo-video/core && npm run build",
+    "audio:generate": "npm run audio:generate --workspace=@ai-promo-video/core",
+    "qanode:capture": "npm run qanode:capture --workspace=@ai-promo-video/core",
+    "qanode:render": "npm run qanode:render --workspace=@ai-promo-video/core",
+    "qanode:advanced": "npm run qanode:advanced --workspace=@ai-promo-video/core",
+    "benchmark:render": "npm run benchmark:render --workspace=@ai-promo-video/core",
+    "prepare": "npm run build"
+  }
+}

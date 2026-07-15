@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "id": "qanode-promo-30s",
+  "title": "QANode — Teste com confiança",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "duration": 30,
+  "brand": {
+    "name": "QANode",
+    "logo": "./logo-transparent.png",
+    "accent": "#6366F1",
+    "accent2": "#22D3EE",
+    "background": "#060609",
+    "foreground": "#FAFAFA",
+    "fontFamily": "Inter, ui-sans-serif, system-ui, sans-serif"
+  },
+  "music": {
+    "track": "signal-flow",
+    "volume": 0.19
+  },
+  "scenes": [
+    {
+      "id": "opening",
+      "type": "hero",
+      "duration": 4.5,
+      "eyebrow": "Automação de qualidade",
+      "title": "Seu release não pode depender de sorte.",
+      "subtitle": "Transforme fluxos críticos em testes claros, reproduzíveis e prontos para executar.",
+      "transition": "zoom",
+      "align": "left"
+    },
+    {
+      "id": "visual-editor",
+      "type": "product",
+      "duration": 5.5,
+      "eyebrow": "Canvas visual",
+      "title": "Desenhe o teste.\nEntenda cada passo.",
+      "subtitle": "Uma visão direta do cenário, das ações e da jornada que precisa funcionar.",
+      "media": "./captures/editor.png",
+      "transition": "push",
+      "focus": {
+        "x": 0.61,
+        "y": 0.58,
+        "scale": 1.14
+      },
+      "align": "left"
+    },
+    {
+      "id": "scenarios",
+      "type": "product",
+      "duration": 5,
+      "eyebrow": "Tudo organizado",
+      "title": "Do cenário à execução,\nsem perder o contexto.",
+      "subtitle": "Crie, acompanhe e rode automações no mesmo espaço de trabalho.",
+      "media": "./captures/flows.png",
+      "transition": "wipe",
+      "focus": {
+        "x": 0.55,
+        "y": 0.5,
+        "scale": 1.09
+      },
+      "align": "left"
+    },
+    {
+      "id": "visibility",
+      "type": "metrics",
+      "duration": 5.5,
+      "eyebrow": "Ambiente demo ao vivo",
+      "title": "Sinais claros.\nDecisões rápidas.",
+      "subtitle": "O painel transforma cada execução em evidência visível para o time.",
+      "media": "./captures/dashboard.png",
+      "transition": "push",
+      "metrics": [
+        { "label": "sucesso nas últimas 24h", "value": "100%" },
+        { "label": "duração média", "value": "6.5s" },
+        { "label": "falhas hoje", "value": "0" },
+        { "label": "execução hoje", "value": "1" }
+      ],
+      "align": "left"
+    },
+    {
+      "id": "coverage",
+      "type": "features",
+      "duration": 5,
+      "eyebrow": "Cobertura em profundidade",
+      "title": "O mesmo canvas para\ntestar o que importa.",
+      "subtitle": "Menos fragmentação. Mais confiança antes de colocar uma mudança no ar.",
+      "transition": "zoom",
+      "bullets": [
+        "Fluxos web inteligentes",
+        "APIs e bancos de dados",
+        "Execuções com histórico"
+      ],
+      "align": "left"
+    },
+    {
+      "id": "final-cta",
+      "type": "cta",
+      "duration": 4.5,
+      "eyebrow": "QANode",
+      "title": "Teste com confiança.\nEntregue no ritmo.",
+      "subtitle": "Comece pelo fluxo crítico do seu produto.",
+      "badge": "Transforme seu próximo teste",
+      "transition": "fade",
+      "align": "center"
+    }
+  ],
+  "output": "./output/qanode-promo-30s.mp4"
+}

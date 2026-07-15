@@ -1,0 +1,12 @@
+{
+  "input": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-time-lapse-view-from-london-peak-scenic-overlook-looking-north-across-th-165926133.webm",
+  "output": "plugins/ai-promo-video/examples/auto-superacao/advanced/public/mountain.mp4",
+  "start": 0,
+  "end": 39.7,
+  "speed": 2,
+  "resize": {"width": 1920, "height": 1080, "fit": "cover", "background": "#000000"},
+  "color": {"brightness": -0.08, "contrast": 1.1, "saturation": 0.7, "gamma": 0.94},
+  "fadeIn": 0.35,
+  "fadeOut": 0.35,
+  "mute": true
+}

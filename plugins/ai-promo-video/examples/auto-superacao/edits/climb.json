@@ -1,0 +1,12 @@
+{
+  "input": "plugins/ai-promo-video/examples/auto-superacao/media/wikimedia-drone-footage-of-people-climbing-ice-formation-webm-70810210.webm",
+  "output": "plugins/ai-promo-video/examples/auto-superacao/advanced/public/climb.mp4",
+  "start": 30,
+  "end": 80,
+  "speed": 1.5,
+  "resize": {"width": 1920, "height": 1080, "fit": "cover", "background": "#000000"},
+  "color": {"brightness": -0.04, "contrast": 1.08, "saturation": 0.78, "gamma": 0.98},
+  "fadeIn": 0.25,
+  "fadeOut": 0.3,
+  "mute": true
+}

@@ -1,0 +1,22 @@
+{
+  "inputVideo": "plugins/ai-promo-video/examples/auto-superacao/output/ainda-silent-v5.mp4",
+  "music": "plugins/ai-promo-video/examples/auto-superacao/music/openverse-eb5fdb2a-1d36-46b4-9266-48485913d212.mp3",
+  "output": "plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4",
+  "baseVolume": 0.68,
+  "sourceOffset": 0,
+  "loop": false,
+  "preserveOriginalAudio": false,
+  "envelope": [
+    {"time": 0, "volume": 0},
+    {"time": 1.5, "volume": 0.35},
+    {"time": 4, "volume": 0.75},
+    {"time": 12, "volume": 0.85},
+    {"time": 19, "volume": 0.95},
+    {"time": 31, "volume": 1},
+    {"time": 42, "volume": 0.76},
+    {"time": 49, "volume": 1},
+    {"time": 55, "volume": 1.15},
+    {"time": 58, "volume": 0.72},
+    {"time": 61.35, "volume": 0}
+  ]
+}

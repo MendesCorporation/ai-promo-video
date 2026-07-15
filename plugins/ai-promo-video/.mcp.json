@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ai-promo-video": {
+      "command": "node",
+      "args": ["./dist/mcp/server.js"],
+      "cwd": "."
+    }
+  }
+}

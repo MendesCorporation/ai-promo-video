@@ -1,0 +1,13 @@
+interface:
+  display_name: "AI Promo Video Director"
+  short_description: "Direct polished, headless AI promo videos"
+  brand_color: "#7C5CFF"
+  default_prompt: "Use $create-ai-promo-video to direct a polished promo, render it, and visually review the result."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "ai-promo-video"
+      description: "Searches licensed free media, captures the product, and renders deterministic motion-design videos."
+      transport: "stdio"
+policy:
+  allow_implicit_invocation: true

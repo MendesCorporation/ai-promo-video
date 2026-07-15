@@ -1,0 +1,52 @@
+# Dependencies and generated builds
+node_modules/
+.venv/
+dist/
+coverage/
+*.tsbuildinfo
+*.tgz
+
+# Local credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.local.json
+**/.auth/
+**/storage-state.json
+**/credentials.json
+
+# Editors, operating systems, and caches
+.DS_Store
+.idea/
+.vscode/
+.cache/
+.playwright-cli/
+*.log
+
+# Temporary render and browser output
+/output/
+/tmp/
+/temp/
+
+# Generated procedural audio. catalog.json remains versioned.
+plugins/ai-promo-video/assets/audio/*.wav
+
+# Example source media, browser captures, review packs, and generated sidecars
+plugins/ai-promo-video/examples/**/captures/**
+plugins/ai-promo-video/examples/**/public/**
+plugins/ai-promo-video/examples/**/advanced/public/**
+plugins/ai-promo-video/examples/**/source-review/**
+plugins/ai-promo-video/examples/**/inspect-*.png
+plugins/ai-promo-video/examples/**/*.mp3
+plugins/ai-promo-video/examples/**/*.webm
+plugins/ai-promo-video/examples/**/*.mp3.json
+plugins/ai-promo-video/examples/**/*.webm.json
+plugins/ai-promo-video/examples/**/*.mp4.render.json
+plugins/ai-promo-video/examples/**/manifest.json
+
+# Ignore every example render, then keep only the three README demos.
+plugins/ai-promo-video/examples/**/output/**
+!plugins/ai-promo-video/examples/motion-benchmark/output/signalnest-motion-benchmark-kinetic-v3-final-56s.mp4
+!plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4
+!plugins/ai-promo-video/examples/qanode/output/menu-assembly/
+!plugins/ai-promo-video/examples/qanode/output/menu-assembly/qanode-menu-assembly-final.mp4
