@@ -22,6 +22,8 @@ import { prepareCaptionTiming, reviewCaptionTiming } from '../captions/timing.js
 import { editImage, editVideo, mixMusic, replaceVideoRange } from '../media/edit.js';
 import { cleanDeliveryOutput } from '../media/cleanup.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos } from '../library/search.js';
+import { getContextualHelp, helpKinds } from '../help/catalog.js';
+import { attachSourceContracts } from '../help/source-contract.js';
 
 const skillDirectory = fileURLToPath(new URL('../../skills/create-ai-promo-video/', import.meta.url));
 const directorGuide = await readFile(join(skillDirectory, 'SKILL.md'), 'utf8');
@@ -40,10 +42,10 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.4.1',
+  version: '0.5.0',
 }, {
   capabilities: { logging: {} },
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
 });
 
 function response(value: unknown) {
@@ -104,6 +106,18 @@ server.registerTool('load_director_guide', {
   description: 'Load the complete create-ai-promo-video Skill workflow before planning a production. Use this first when the host client exposes MCP tools but does not discover filesystem Skills, prompts, or resources, such as Claude Desktop Home.',
   inputSchema: {},
 }, async () => ({ content: [{ type: 'text' as const, text: directorGuide }] }));
+
+server.registerTool('help', {
+  title: 'AI Promo Video Contextual Help',
+  description: 'Progressively load detailed documentation for one exact MCP tool, motion component, transition, or production topic. Call without arguments for a compact index, with query for short candidates, then with target kind:id (or kind plus id) for complete parameters, values, constraints, examples, pitfalls, and validation.',
+  inputSchema: {
+    target: z.string().min(1).optional(),
+    kind: z.enum(helpKinds).optional(),
+    id: z.string().min(1).optional(),
+    query: z.string().min(1).optional(),
+    limit: z.number().int().min(1).max(30).default(12),
+  },
+}, async (options) => response(await attachSourceContracts(getContextualHelp(options))));
 
 server.registerTool('inspect_saas', {
   title: 'Inspect SaaS',
@@ -392,7 +406,14 @@ server.registerTool('get_motion_component', {
 }, async ({ id }) => {
   const found = motionComponentLibrary.find((item) => item.id === id);
   if (!found) throw new Error(`Unknown motion component: ${id}`);
-  return response(found);
+  return response({
+    ...found,
+    detailedHelp: {
+      tool: 'help',
+      arguments: { target: `${found.category === 'transition' ? 'transition' : 'component'}:${found.id}` },
+      note: 'Call contextual help before authoring this component when parameter values, constraints, choreography, pitfalls, or validation are uncertain.',
+    },
+  });
 });
 
 server.registerTool('scaffold_advanced_video', {

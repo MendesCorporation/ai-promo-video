@@ -6,13 +6,14 @@ The library is a searchable vocabulary of visual systems, not a gallery of finis
 
 1. Write the shot's narrative job and art direction first.
 2. Call `search_motion_components` with useful concepts, categories, moods, tags, or energy. Search multiple needs separately instead of one broad query.
-3. Call `get_motion_component` for shortlisted entries. Read its parameters, source exports, and composition notes.
-4. Scaffold once. The same catalog is saved as `motion-library.json`; reusable code is in `motion-library.tsx` and `kinetic.ts`.
-5. Import only the selected primitives. Restyle, combine, and extend them in the actual scene source.
+3. Call `get_motion_component` for shortlisted entries. Read its compact parameters, source exports, and composition notes.
+4. Before using an unfamiliar, fragile, or visually sensitive component, call `help` with the exact target such as `component:liquid-glass-text`. For a transition-category entry use `transition:<id>`. Exact help contains types, defaults, calibrated ranges where available, choreography, pitfalls, examples, and validation. Do not load every help entry.
+5. Scaffold once. The same catalog is saved as `motion-library.json`; reusable code is in `motion-library.tsx` and `kinetic.ts`.
+6. Import only the selected primitives. Restyle, combine, and extend them in the actual scene source.
 
 The catalog covers format systems, safe areas, captions, backgrounds, layouts, typography, product presentation, shapes, transitions, camera, cursor behavior, particles, and effects. Typography includes both structural motion and temporary lighting such as the base-fill-preserving `SpecularTextStack` plus `specularTextSweep` pair. Search results are possibilities, not ranked creative recommendations. An empty or broad search is for exploration only.
 
-`OpticalGlass` and `LiquidGlassText` are destination-texture optical primitives rather than visual presets. The former supplies a neutral rounded refractive surface; the latter turns a short, large, heavy word or logo into a live glyph lens. Author their palette, geometry, background, content, timing, and interaction for the current shot. Do not use optical type for paragraphs, captions, small copy, or thin fonts, and always inspect readability over both light and dark background regions.
+`OpticalGlass` and `LiquidGlassText` are destination-texture optical primitives rather than visual presets. The former supplies a neutral rounded refractive surface; the latter turns a short, large, heavy word or logo into a live glyph lens. Their shader props alone are not the full material contract: call `help` for `component:optical-liquid-glass` or `component:liquid-glass-text` and follow its coupled backdrop, layer-order, parameter-envelope, continuous-motion, and validation requirements. Author palette, geometry, background, content, timing, and interaction for the current shot. Do not use optical type for paragraphs, captions, small copy, or thin fonts, and always inspect readability over both light and dark background regions.
 
 The scaffold also includes `format.tsx`, `captions.tsx`, `ambient.ts`, `procedural.tsx`, `vector-motion.ts`, and `three-effects.ts`. These add adaptive aspect-ratio helpers, word-timed caption animation, full-shot ambient motion, seeded flow fields and attractors, font/SVG path motion, and optional Three.js finishing passes. None supplies a default scene or visual look.
 

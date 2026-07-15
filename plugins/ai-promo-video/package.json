@@ -1,6 +1,6 @@
 {
   "name": "@ai-promo-video/core",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Headless, agent-driven AI promo video capture and motion-rendering toolkit",
   "type": "module",
   "license": "MIT",

@@ -35,7 +35,7 @@ Recording an application is only raw material. A strong promo also needs a story
 This project separates that problem into two parts:
 
 - **The Skill is the director.** It teaches the AI how to turn a brief into a distinct story and art direction, choose what to capture, discover motion components without treating them as templates, compare music without a default track, and review its own work.
-- **The MCP server is the production crew.** It provides deterministic operations for navigating the product, recording it, searching the motion library and free media, analyzing music, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning the delivery directory.
+- **The MCP server is the production crew.** It provides progressive contextual help plus deterministic operations for navigating the product, recording it, searching the motion library and free media, analyzing music, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning the delivery directory.
 
 No AI model is bundled with the project. Codex, Claude, or Cursor uses the model already selected by the user. For clients that do not discover filesystem Skills, the MCP server exposes the same directing guide through a prompt and resources.
 
@@ -48,7 +48,7 @@ When a user asks for “a 30-second promo for this SaaS,” the AI follows this 
 3. Captures clean screenshots or product footage, including user-configured authenticated sessions.
 4. Writes the musical intent, then searches local or online sources for music, footage, and assets with known licenses. Bundled tracks are optional and excluded unless explicitly requested.
 5. Writes a story, art direction, beat map, musical accents, and camera logic for this production rather than copying a fixed scene arc.
-6. Searches the component vocabulary and creates the real Revideo/TypeScript composition from selected primitives plus custom code. It never renders a generic template to replace later.
+6. Searches the component vocabulary, loads detailed help only for the selected tools/components/transitions, and creates the real Revideo/TypeScript composition from those primitives plus custom code. It never renders a generic template to replace later.
 7. Renders H.264/AAC video at 24–60 FPS and up to 4K.
 8. Extracts frames from the full film and around every transition so the AI can inspect its own output.
 9. Fixes visual anomalies, timing, typography, camera motion, or composition. If a problem is isolated, it rerenders and replaces only that interval.
@@ -224,8 +224,9 @@ Online results can only be selected when their license is known and allowed. Eve
 
 ## MCP tools
 
-The server exposes 36 tools:
+The server exposes 37 tools:
 
+- Progressive documentation: `help`. Call it without arguments for a compact index, with `query` for short candidates, or with an exact target such as `component:liquid-glass-text`, `transition:camera-zoom-through`, or `tool:render_advanced_video` for parameter types, runtime defaults, calibrated ranges where available, choreography, examples, pitfalls, source signatures, and validation rules.
 - Product: `inspect_saas`, `capture_saas`, `record_saas_flows`.
 - Music: `list_music`, `generate_music_library`, `search_music`, `download_music`, `analyze_music`, `mix_music`.
 - Free media: `search_free_videos`, `download_free_video`, `search_free_assets`, `download_free_asset`.
@@ -236,7 +237,7 @@ The server exposes 36 tools:
 - Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`.
 - Delivery: `clean_delivery_output`.
 
-The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and ten detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
+The contextual `help` tool keeps routine calls small: the full catalog is never injected automatically, and exact documentation is returned only for the requested target. The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and ten detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
 
 ## CLI usage
 

@@ -28,6 +28,8 @@ import {
   windowsCommandNeedsShell,
 } from '../src/install.js';
 import { aggregateWorkerProgress } from '../src/advanced/render-protocol.js';
+import { getContextualHelp, toolHelpEntries } from '../src/help/catalog.js';
+import { attachSourceContracts, sourceApiContracts } from '../src/help/source-contract.js';
 
 function plan() {
   return {
@@ -257,6 +259,63 @@ describe('advanced project source', () => {
     expect(searchMotionComponents({ query: 'background continuously drifting while the scene plays' }).map((item) => item.id)).toContain('continuous-ambient-field');
     expect(searchMotionComponents({ query: 'optical liquid glass refraction' }).map((item) => item.id)).toContain('optical-liquid-glass');
     expect(searchMotionComponents({ query: 'liquid glass text refraction' }).map((item) => item.id)).toContain('liquid-glass-text');
+  });
+});
+
+describe('progressive contextual help', () => {
+  it('keeps the index compact and loads calibrated component detail only on demand', () => {
+    const index = getContextualHelp() as { mode: string; counts: { tools: number; components: number }; topics: unknown[]; help?: unknown };
+    expect(index.mode).toBe('index');
+    expect(index.counts.tools).toBe(toolHelpEntries.length);
+    expect(index.counts.components).toBe(motionComponentLibrary.length);
+    expect(index).not.toHaveProperty('help');
+
+    const result = getContextualHelp({ target: 'component:liquid-glass-text' }) as {
+      mode: string;
+      help: { contractLevel: string; parameters: Record<string, { default?: unknown; recommended?: string }>; pitfalls: string[] };
+    };
+    expect(result.mode).toBe('detail');
+    expect(result.help.contractLevel).toBe('calibrated');
+    expect(result.help.parameters.refraction).toMatchObject({ default: 0.038 });
+    expect(result.help.parameters.refraction.recommended).toContain('0.035');
+    expect(result.help.parameters.phase.recommended).toContain('continuously');
+    expect(result.help.pitfalls.join(' ')).toContain('constant phase');
+  });
+
+  it('supports compact search and treats transition help as a continuity contract', () => {
+    const search = getContextualHelp({ query: 'liquid glass text', limit: 4 }) as { mode: string; results: Array<{ target: string; summary: string; parameters?: unknown }> };
+    expect(search.mode).toBe('search');
+    expect(search.results.map((entry) => entry.target)).toContain('component:liquid-glass-text');
+    expect(search.results.every((entry) => !('parameters' in entry))).toBe(true);
+
+    const transition = getContextualHelp({ kind: 'transition', id: 'camera-zoom-through' }) as {
+      mode: string;
+      help: { kind: string; workflow: string[]; validation: string[] };
+    };
+    expect(transition.mode).toBe('detail');
+    expect(transition.help.kind).toBe('transition');
+    expect(transition.help.workflow.join(' ')).toContain('overlap');
+    expect(transition.help.validation.join(' ')).toContain('first settled destination frame');
+  });
+
+  it('documents every MCP tool registered by the server', async () => {
+    const serverSource = await readFile(new URL('../src/mcp/server.ts', import.meta.url), 'utf8');
+    const registered = [...serverSource.matchAll(/server\.registerTool\('([^']+)'/g)].map((match) => match[1]).sort();
+    expect(toolHelpEntries.map((entry) => entry.id).sort()).toEqual(registered);
+  });
+
+  it('attaches exact shipped type declarations, signatures, and runtime defaults on detail calls', async () => {
+    const contracts = await sourceApiContracts(['LiquidGlassText', 'cameraMove', 'customEscapeHatch']);
+    expect(contracts[0]).toMatchObject({ exportName: 'LiquidGlassText', sourceFile: 'liquid-glass-text.tsx' });
+    expect(contracts[0].typeDeclaration).toContain('LiquidGlassTextProps');
+    expect(contracts[0].callSignature).toContain('refraction = 0.038');
+    expect(contracts[1].typeDeclaration).toContain('CameraMoveOptions');
+    expect(contracts[2].note).toContain('composition recipe');
+
+    const detailed = await attachSourceContracts(getContextualHelp({ target: 'component:liquid-glass-text' })) as {
+      help: { sourceContracts: Array<{ sourceFile: string }> };
+    };
+    expect(detailed.help.sourceContracts[0].sourceFile).toBe('liquid-glass-text.tsx');
   });
 });
 
