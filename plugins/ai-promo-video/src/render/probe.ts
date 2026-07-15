@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import ffmpegPathValue from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
@@ -21,6 +21,10 @@ function ratio(value?: string): number | undefined {
   const [numerator, denominator] = value.split('/').map(Number);
   if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) return undefined;
   return numerator / denominator;
+}
+
+function ffmpegTime(value: number): string {
+  return Math.max(0, value).toFixed(6);
 }
 
 export async function probeVideo(path: string): Promise<VideoProbe> {
@@ -58,9 +62,15 @@ export async function extractReviewFrames(videoPath: string, outputDir: string, 
   await mkdir(absoluteOutput, { recursive: true });
   const outputs: string[] = [];
   for (let index = 0; index < times.length; index += 1) {
-    const output = join(absoluteOutput, `review-${String(index + 1).padStart(2, '0')}-${times[index].toFixed(1)}s.png`);
+    const output = join(absoluteOutput, `review-${String(index + 1).padStart(2, '0')}-${times[index].toFixed(3)}s.png`);
     await mkdir(dirname(output), { recursive: true });
-    await runCommand(ffmpegPath, ['-y', '-ss', String(times[index]), '-i', absoluteVideo, '-frames:v', '1', '-compression_level', '4', output], { quiet: true });
+    // Decode sequentially and trim inside the filter graph. Timestamp seeking can
+    // expose corrupt-looking dependent frames or empty tiles in otherwise valid MP4s.
+    await runCommand(ffmpegPath, [
+      '-y', '-filter_threads', '1', '-i', absoluteVideo,
+      '-vf', `trim=start=${ffmpegTime(times[index])},setpts=PTS-STARTPTS`,
+      '-frames:v', '1', output,
+    ], { quiet: true });
     outputs.push(output);
   }
   return outputs;
@@ -89,10 +99,44 @@ const visualChecklist = [
   'Look for unintended tracking, collisions, clipping, overflow, orphaned words, and text that reads as disconnected labels.',
   'Compare frames immediately before, during, and after every transition for flashes, jumps, stale layers, or mismatched direction.',
   'Verify camera scale, rotation, perspective, and motion blur preserve hierarchy and legibility.',
+  'For portrait and square delivery, verify the scene was recomposed for the frame and all essential content remains inside the selected platform safe area.',
+  'Verify caption plates enter only when copy needs support, never obscure the focal subject, and do not linger empty before or after speech.',
+  'Inspect exact active-word, phrase-change, and settled-caption frames for timing, line-wrap, emphasis, safe-area, and speaker-label errors.',
+  'If word timing was interpolated from cue timestamps, treat it as approximate and check perceived speech alignment instead of claiming exact synchronization.',
   'Verify cursor paths, click responses, card assembly, masks, particles, and UI states have a visible cause and clean result.',
   'Confirm the final CTA or intentional resolution is stable, readable, composed according to the art direction, and held long enough.',
   'Treat black, frozen, or silent segments as review candidates, not automatic failures; decide from the intended direction.',
 ];
+
+async function createContactSheet(options: {
+  ffmpegPath: string;
+  videoPath: string;
+  outputPath: string;
+  selectionFilter: string;
+  columns: number;
+  rows: number;
+}): Promise<void> {
+  const workingDirectory = await mkdtemp(join(dirname(options.outputPath), '.review-sheet-'));
+  const framePattern = join(workingDirectory, 'frame-%03d.png');
+  const capacity = options.columns * options.rows;
+  try {
+    // Decode sampled frames into independent PNG files before scaling or tiling.
+    // Some FFmpeg builds reuse filtered frame state when a tall source is sampled,
+    // scaled, padded, and tiled in one pass, which can create false QA artifacts.
+    await runCommand(options.ffmpegPath, [
+      '-y', '-filter_threads', '1', '-i', options.videoPath,
+      '-vf', options.selectionFilter,
+      '-fps_mode', 'vfr', '-frames:v', String(capacity), framePattern,
+    ], { quiet: true });
+    await runCommand(options.ffmpegPath, [
+      '-y', '-filter_threads', '1', '-framerate', '1', '-i', framePattern,
+      '-vf', `scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=black,tile=${options.columns}x${options.rows}`,
+      '-frames:v', '1', options.outputPath,
+    ], { quiet: true });
+  } finally {
+    await rm(workingDirectory, { recursive: true, force: true });
+  }
+}
 
 function anomalyLines(stderr: string): string[] {
   return stderr
@@ -110,6 +154,7 @@ export async function createVisualReviewPack(videoPath: string, outputDir: strin
   const interval = options.overviewInterval ?? 2;
   const transitionWindow = options.transitionWindow ?? 1;
   const transitionFps = options.transitionFps ?? 4;
+  const sourceFps = video.fps && video.fps > 0 ? video.fps : 30;
   const transitionTimes = [...new Set(options.transitionTimes ?? [])].sort((a, b) => a - b);
   if (!(interval >= 0.25 && interval <= 10)) throw new Error('overviewInterval must be between 0.25 and 10 seconds');
   if (!(transitionWindow >= 0.25 && transitionWindow <= 3)) throw new Error('transitionWindow must be between 0.25 and 3 seconds');
@@ -123,11 +168,15 @@ export async function createVisualReviewPack(videoPath: string, outputDir: strin
   for (let start = 0, index = 0; start < video.duration; start += secondsPerSheet, index += 1) {
     const output = join(absoluteOutput, `overview-${String(index + 1).padStart(2, '0')}.png`);
     const length = Math.min(secondsPerSheet, video.duration - start);
-    await runCommand(ffmpegPath, [
-      '-y', '-ss', String(start), '-t', String(length), '-i', absoluteVideo,
-      '-vf', `fps=1/${interval},scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=black,tile=4x4`,
-      '-frames:v', '1', '-compression_level', '4', output,
-    ], { quiet: true });
+    const sampleEveryFrames = Math.max(1, Math.round(sourceFps * interval));
+    await createContactSheet({
+      ffmpegPath,
+      videoPath: absoluteVideo,
+      outputPath: output,
+      selectionFilter: `trim=start=${ffmpegTime(start)}:duration=${ffmpegTime(length)},setpts=PTS-STARTPTS,select='not(mod(n\\,${sampleEveryFrames}))'`,
+      columns: 4,
+      rows: 4,
+    });
     overviewSheets.push(output);
   }
 
@@ -136,12 +185,16 @@ export async function createVisualReviewPack(videoPath: string, outputDir: strin
     const time = transitionTimes[index];
     const start = Math.max(0, time - transitionWindow);
     const length = Math.min(video.duration - start, transitionWindow * 2);
+    const sampleEveryFrames = Math.max(1, Math.round(sourceFps / transitionFps));
     const output = join(absoluteOutput, `transition-${String(index + 1).padStart(2, '0')}-${time.toFixed(2)}s.png`);
-    await runCommand(ffmpegPath, [
-      '-y', '-ss', String(start), '-t', String(length), '-i', absoluteVideo,
-      '-vf', `fps=${transitionFps},scale=480:270:force_original_aspect_ratio=decrease,pad=480:270:(ow-iw)/2:(oh-ih)/2:color=black,tile=4x2`,
-      '-frames:v', '1', '-compression_level', '4', output,
-    ], { quiet: true });
+    await createContactSheet({
+      ffmpegPath,
+      videoPath: absoluteVideo,
+      outputPath: output,
+      selectionFilter: `trim=start=${ffmpegTime(start)}:duration=${ffmpegTime(length)},setpts=PTS-STARTPTS,select='not(mod(n\\,${sampleEveryFrames}))'`,
+      columns: 4,
+      rows: 2,
+    });
     transitionSheets.push(output);
   }
 

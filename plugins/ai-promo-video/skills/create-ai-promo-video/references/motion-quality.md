@@ -10,6 +10,7 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 - Use screenshots and recordings as textures inside designed frames, not as unexplained full-screen media.
 - Alternate compositions and scale. Repeating centered title plus card layouts reads as a template.
 - Reject unexplained repetition from previous productions: the same palette, background motif, card count, camera path, typography entrance, beat order, or transition family is an originality defect when the brief does not justify it.
+- For portrait and square output, recompose hierarchy and focal crops; a scaled-down landscape frame is a format defect.
 
 ## Motion language
 
@@ -21,6 +22,7 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 - Use motion blur or directional blur for fast travel, but never to hide weak timing.
 - Time major transitions to musical phrases or accents, not arbitrary equal intervals.
 - Keep camera motion alive through a perspective shot: arrive at a focus, follow the interaction, then reframe or exit. A fixed tilted screen is not a camera move.
+- When a shot calls for ambient life, keep its selected background, depth, light, or camera threads continuous beneath semantic events. Reject stop-start drift, abrupt phase changes, visible loop seams, or motion that restarts after each beat. Reject concurrent story and ambient threads that write the same position, scale, rotation, opacity, or gradient signal; separate them with nested rigs.
 
 ## Product proof
 
@@ -32,4 +34,6 @@ The minimum bar is a strong studio promo, not an automated slideshow. A referenc
 
 Generate a fresh visual review pack after every full render and after every revised range. Load every returned overview sheet and dense transition strip with `read_visual_files`, plus cursor-down and post-click states. Compare the settled frame against the moving states; expressive tracking, blur, or displacement must not remain accidentally active.
 
-Reject any render with disconnected word spacing, poor logo lockup gaps, unintended tracking, collisions, orphaned line breaks, clipped text, tiny or soft product UI, broken z-order, flashes between scenes, mismatched camera direction, arbitrary decoration, frozen-feeling motion, audio jumps, license ambiguity, or a final CTA/resolution that disappears before it can be understood. Correct material issues and regenerate the pack before delivery.
+Reject any render with disconnected word spacing, poor logo lockup gaps, unintended tracking, collisions, orphaned line breaks, clipped text, tiny or soft product UI, broken z-order, flashes between scenes, mismatched camera direction, arbitrary decoration, frozen-feeling motion, unsafe portrait placement, caption plates appearing long before their words, unreadable caption speed, inaccurate claimed word sync, audio jumps, license ambiguity, or a final CTA/resolution that disappears before it can be understood. Correct material issues and regenerate the pack before delivery.
+
+For optical glass, inspect full-resolution frames over every materially different background region. Reject flat blur pretending to be refraction, doubled or broken glyph edges, unreadable glass type, clipped lens distortion, a glass body that appears before its materialization, or highlights that jump independently from the light and geometry.

@@ -110,7 +110,7 @@ npm run setup
 node plugins/ai-promo-video/dist/install.js install
 ```
 
-`setup` installs dependencies, installs the Chromium build used by Playwright, and compiles the project. The second command installs a stable runtime and configures Codex, Claude Code, and Cursor.
+`setup` installs dependencies, applies the pinned and idempotent Revideo 0.11 shader-context compatibility patch, installs the Chromium build used by Playwright, and compiles the project. The second command installs a stable runtime and configures Codex, Claude Code, and Cursor.
 
 This route is intended for contributors and anyone who wants to inspect or modify the engine before installing it. To run directly from the checkout without installing it globally, use the CLI commands documented below.
 
@@ -211,8 +211,12 @@ The AI can read the existing source, edit only the affected scene or interval, r
 - Image and asset search through Openverse, Wikimedia Commons, and, optionally, Pexels.
 - Openverse and Wikimedia require no API key. Pexels is free but requires `PEXELS_API_KEY`.
 - Images, SVG, vector paths, masks, gradients, filters, shaders, particles, Three.js, and video clips inside the same composition.
-- A searchable motion vocabulary spanning backgrounds, layouts, typography, product presentation, shapes, transitions, camera, cursors, particles, and effects; every item can be restyled, combined, or replaced with custom TypeScript.
+- Native landscape, portrait, and square composition profiles with adaptive stages, focal product crops, and editable safe-area defaults for TikTok, Instagram Reels, and YouTube Shorts. Vertical output is recomposed rather than produced by shrinking a landscape scene.
+- A searchable motion vocabulary spanning backgrounds, formats, layouts, captions, typography, product presentation, shapes, transitions, camera, cursors, particles, and effects; every item can be restyled, combined, or replaced with custom TypeScript.
 - Kinetic typography by block, line, word, or character, including tracking, blur, rise, wipe, typewriter, erase/rewrite, swaps, and typography-driven masks.
+- Reusable destination-texture optical glass for authored surfaces plus liquid-glass glyph lenses with refraction, dispersion, responsive highlights, and luminance-aware text contrast.
+- Speech-following captions from SRT, WebVTT, cue JSON, or exact word-timing JSON, with word-follow, karaoke, punch, phrase-window, speaker, and adaptive caption-lane systems. Cue-only timestamps are labeled as approximate interpolation instead of being presented as exact alignment.
+- Vector glyph outlines and SVG path morphing through OpenType.js and Flubber; seeded flow fields, attraction, dissolution, and shockwaves through Simplex Noise; optional selective bloom, depth of field, chromatic aberration, grain, and vignette through Three.js postprocessing.
 - Non-destructive crop, resize, color treatment, blur/redaction, chroma removal, trim, speed, fades, volume, and mute.
 - Frame-evaluated music envelopes for precise entrances, drops, pauses, ducks, and fades without rerendering the visuals.
 
@@ -220,18 +224,19 @@ Online results can only be selected when their license is known and allowed. Eve
 
 ## MCP tools
 
-The server exposes 32 tools:
+The server exposes 36 tools:
 
 - Product: `inspect_saas`, `capture_saas`, `record_saas_flows`.
 - Music: `list_music`, `generate_music_library`, `search_music`, `download_music`, `analyze_music`, `mix_music`.
 - Free media: `search_free_videos`, `download_free_video`, `search_free_assets`, `download_free_asset`.
+- Formats and captions: `list_format_profiles`, `prepare_caption_timing`, `review_caption_timing`.
 - Motion composition: `list_motion_capabilities`, `search_motion_components`, `get_motion_component`, `scaffold_advanced_video`, `list_advanced_video_files`, `read_advanced_video_file`, `save_advanced_video_file`, `patch_advanced_video_file`, `render_advanced_video`.
 - Editing: `edit_capture_image`, `edit_video`, `replace_video_range`.
 - Legacy JSON compatibility: `validate_video_plan`, `render_video`.
 - Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`.
 - Delivery: `clean_delivery_output`.
 
-The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and nine detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
+The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and ten detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
 
 ## CLI usage
 
@@ -252,8 +257,13 @@ node plugins/ai-promo-video/dist/cli.js asset:search --query "abstract technolog
 # Create and render unrestricted motion
 node plugins/ai-promo-video/dist/cli.js motion:capabilities
 node plugins/ai-promo-video/dist/cli.js motion:search --query "camera follows interface assembly" --categories camera,product
-node plugins/ai-promo-video/dist/cli.js advanced:init ./advanced --name "Launch promo"
+node plugins/ai-promo-video/dist/cli.js format:list
+node plugins/ai-promo-video/dist/cli.js advanced:init ./advanced --name "Launch promo" --format portrait --platform tiktok
 node plugins/ai-promo-video/dist/cli.js advanced:render ./advanced/project.tsx --output ./output/promo.mp4
+
+# Prepare captions that follow speech and review their timing
+node plugins/ai-promo-video/dist/cli.js caption:prepare ./captions.srt --output ./advanced/caption-timing.json
+node plugins/ai-promo-video/dist/cli.js caption:review ./advanced/caption-timing.json
 
 # Render and replace only a revised interval
 node plugins/ai-promo-video/dist/cli.js advanced:render ./advanced/project.tsx --output ./output/patch.mp4 --start 4.5 --end 10
@@ -274,6 +284,7 @@ plugins/ai-promo-video/
 ├── src/install.ts                    universal installer
 ├── src/capture/                      product inspection and recording
 ├── src/advanced/                     motion catalog and editable Revideo projects
+├── src/captions/                     caption import, word timing, and timing QA
 ├── src/media/                        editing and incremental revisions
 ├── src/library/                      local and online free-media search
 ├── assets/revideo-template/          neutral scaffold and reusable motion primitives
@@ -293,6 +304,9 @@ The project does not send the SaaS to its own model because it includes neither 
 ```bash
 npm run build
 npm test
+npm run test:revideo-shader
 ```
+
+The shader regression test renders source and destination-texture shaders with reactive parameters across two workers. `npm run revideo:patch:check` verifies the local Revideo compatibility patch without changing files. The install fails safely if Revideo's pinned version or expected runtime shape changes, instead of modifying an unknown build.
 
 Rendering is deterministic for the same source, assets, versions, and platform. Revideo telemetry is disabled by the advanced renderer. The CLI prints live render progress to stderr while preserving the machine-readable result on stdout. Before delivery, the Skill requires duration and codec inspection, full-film sampling, transition review, and correction of visual anomalies.

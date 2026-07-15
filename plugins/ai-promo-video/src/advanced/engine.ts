@@ -4,6 +4,7 @@ import { fork, spawn } from 'node:child_process';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { motionComponentLibrary, motionLibrarySummary } from './library.js';
+import { resolveVideoFormat, type PlatformTarget, type VideoFormatId, type VideoFormatProfile } from './formats.js';
 import type { AdvancedRenderParentMessage, AdvancedRenderWorkerMessage, RenderProgressUpdate } from './render-protocol.js';
 
 export type { RenderPhase, RenderProgressUpdate } from './render-protocol.js';
@@ -12,21 +13,24 @@ export interface AdvancedProjectResult {
   projectDir: string;
   projectFile: string;
   sceneFile: string;
+  formatProfile: VideoFormatProfile;
 }
 
 export const motionCapabilities = {
   engine: 'Revideo 0.11 (MIT)',
   selectionRule: 'Capabilities and recipes are possibilities. Start with the current story and art direction; no technique, palette, layout, camera move, or media type is required.',
   primitives: ['Rect', 'Circle', 'Polygon', 'Line', 'Spline', 'Path', 'SVG', 'Img', 'Video', 'Audio', 'Txt', 'Layout', 'Grid', 'Rive'],
-  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'scene transitions', 'path drawing', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography'],
-  effects: ['blur', 'brightness', 'contrast', 'hue', 'saturation', 'shadows', 'blend modes', 'masks', 'shaders'],
+  formats: ['landscape 16:9', 'portrait 9:16', 'square 1:1', 'platform-aware safe areas', 'adaptive layout helpers', 'focal cover crops'],
+  captions: ['SRT and WebVTT import', 'exact word timing JSON', 'deterministic cue interpolation', 'word-follow captions', 'karaoke captions', 'semantic punch captions', 'speaker labels', 'caption timing QA'],
+  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'scene transitions', 'path drawing', 'continuous ambient timelines', 'ambient camera drift', 'ambient parallax', 'ambient orbit and light pulse', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'specular text sweeps', 'liquid-glass glyph refraction', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography', 'vector glyph outlines', 'SVG shape morphing', 'text on paths', 'particle attraction and dissolution'],
+  effects: ['blur', 'brightness', 'contrast', 'hue', 'saturation', 'shadows', 'blend modes', 'masks', 'optical liquid-glass refraction', 'GLSL destination-texture shaders', 'simplex-noise flow fields', 'selective bloom', 'depth of field', 'chromatic aberration', 'grain', 'vignette'],
   threeD: ['Three.js scenes', 'perspective cameras', 'textured product screens', 'lights', 'particles', 'depth and parallax'],
-  exampleRecipes: ['footage-led emotional edit', 'continuous visual transformation', 'kinetic manifesto', 'perspective product reveal', 'focused cursor interaction', 'interface assembly', 'editorial split proof', 'data visualization', 'typography-driven transition', 'abstract procedural environment', 'true 3D product stage', 'mandatory visual review pack'],
+  exampleRecipes: ['footage-led emotional edit', 'continuous ambient shot', 'continuous visual transformation', 'kinetic manifesto', 'perspective product reveal', 'focused cursor interaction', 'interface assembly', 'editorial split proof', 'data visualization', 'typography-driven transition', 'abstract procedural environment', 'true 3D product stage', 'mandatory visual review pack'],
   componentLibrary: motionLibrarySummary,
   extensibility: 'Every new production is one Revideo composition. The AI can combine library primitives and write custom TypeScript, shaders, geometry, and timing inside the same scene.',
 };
 
-const advancedSourceExtensions = new Set(['.ts', '.tsx', '.css', '.json', '.svg']);
+const advancedSourceExtensions = new Set(['.ts', '.tsx', '.css', '.json', '.svg', '.glsl']);
 
 function advancedProjectPath(projectDir: string, relativePath: string): string {
   const root = resolve(projectDir);
@@ -39,11 +43,14 @@ function advancedProjectPath(projectDir: string, relativePath: string): string {
 export async function scaffoldAdvancedProject(options: {
   outputDir: string;
   name: string;
+  format?: VideoFormatId;
+  platform?: PlatformTarget;
   width?: number;
   height?: number;
   fps?: number;
 }): Promise<AdvancedProjectResult> {
   const projectDir = resolve(options.outputDir);
+  const formatProfile = resolveVideoFormat({ format: options.format, platform: options.platform, width: options.width, height: options.height });
   const source = fileURLToPath(new URL('../../assets/revideo-template/', import.meta.url));
   await mkdir(projectDir, { recursive: true });
   await cp(source, projectDir, { recursive: true });
@@ -51,15 +58,16 @@ export async function scaffoldAdvancedProject(options: {
   const projectFile = join(projectDir, 'project.tsx');
   const content = (await readFile(projectFile, 'utf8'))
     .replaceAll('__PROJECT_NAME__', options.name.replaceAll('"', ''))
-    .replaceAll('__WIDTH__', String(options.width ?? 1920))
-    .replaceAll('__HEIGHT__', String(options.height ?? 1080))
+    .replaceAll('__WIDTH__', String(formatProfile.width))
+    .replaceAll('__HEIGHT__', String(formatProfile.height))
     .replaceAll('__FPS__', String(options.fps ?? 30));
   await writeFile(projectFile, content, 'utf8');
   await writeFile(join(projectDir, 'motion-library.json'), JSON.stringify({
     ...motionLibrarySummary,
     components: motionComponentLibrary,
   }, null, 2), 'utf8');
-  return { projectDir, projectFile, sceneFile: join(projectDir, 'scene.tsx') };
+  await writeFile(join(projectDir, 'format-profile.json'), `${JSON.stringify(formatProfile, null, 2)}\n`, 'utf8');
+  return { projectDir, projectFile, sceneFile: join(projectDir, 'scene.tsx'), formatProfile };
 }
 
 export async function saveAdvancedProjectFile(projectDir: string, relativePath: string, source: string): Promise<string> {

@@ -1,6 +1,6 @@
 {
   "name": "ai-promo-video-monorepo",
-  "version": "0.2.3",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "repository": {
@@ -20,7 +20,9 @@
     "plugins/ai-promo-video/package.json",
     "plugins/ai-promo-video/dist",
     "plugins/ai-promo-video/assets",
+    "plugins/ai-promo-video/scripts",
     "plugins/ai-promo-video/skills",
+    "plugins/ai-promo-video/test/fixtures/revideo-shader",
     "plugins/ai-promo-video/.codex-plugin",
     "plugins/ai-promo-video/.mcp.json"
   ],
@@ -28,6 +30,10 @@
     "plugins/*"
   ],
   "scripts": {
+    "postinstall": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs",
+    "revideo:patch": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs",
+    "revideo:patch:check": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs --check",
+    "test:revideo-shader": "npm run test:revideo-shader --workspace=@ai-promo-video/core",
     "build": "npm run build --workspace=@ai-promo-video/core",
     "test": "npm run test --workspace=@ai-promo-video/core",
     "setup": "npm install && npm run browser:install --workspace=@ai-promo-video/core && npm run build",

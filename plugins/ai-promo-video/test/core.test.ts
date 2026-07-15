@@ -7,6 +7,8 @@ import { listAudioTracks } from '../src/audio/catalog.js';
 import { analyzeMusic } from '../src/audio/analyze.js';
 import { searchLocalMusic } from '../src/audio/search.js';
 import { motionComponentLibrary, searchMotionComponents } from '../src/advanced/library.js';
+import { resolveVideoFormat } from '../src/advanced/formats.js';
+import { prepareCaptionTiming, reviewCaptionTiming } from '../src/captions/timing.js';
 import { editImage, musicEnvelopeExpression } from '../src/media/edit.js';
 import { assessFreeLicense } from '../src/library/license.js';
 import { searchLocalAssets, searchLocalVideos } from '../src/library/local.js';
@@ -181,40 +183,120 @@ describe('advanced project source', () => {
 
   it('scaffolds and patches one exact source fragment without recreating the project', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-promo-advanced-'));
-    const project = await scaffoldAdvancedProject({ outputDir: directory, name: 'Unique launch' });
+    const project = await scaffoldAdvancedProject({ outputDir: directory, name: 'Unique launch', format: 'portrait', platform: 'tiktok' });
     await patchAdvancedProjectFile(directory, 'scene.tsx', [{ find: '// Replace this pause with the authored scene timeline.', replace: '// Authored production timeline begins here.' }]);
     const source = await readFile(project.sceneFile, 'utf8');
     const kinetic = await readFile(join(directory, 'kinetic.ts'), 'utf8');
     const librarySource = await readFile(join(directory, 'motion-library.tsx'), 'utf8');
+    const captionSource = await readFile(join(directory, 'captions.tsx'), 'utf8');
+    const formatSource = await readFile(join(directory, 'format.tsx'), 'utf8');
+    const proceduralSource = await readFile(join(directory, 'procedural.tsx'), 'utf8');
+    const ambientSource = await readFile(join(directory, 'ambient.ts'), 'utf8');
+    const vectorSource = await readFile(join(directory, 'vector-motion.ts'), 'utf8');
+    const threeEffectsSource = await readFile(join(directory, 'three-effects.ts'), 'utf8');
+    const opticalGlassSource = await readFile(join(directory, 'optical-glass.tsx'), 'utf8');
+    const opticalGlassShader = await readFile(join(directory, 'optical-glass.glsl'), 'utf8');
+    const liquidGlassTextSource = await readFile(join(directory, 'liquid-glass-text.tsx'), 'utf8');
+    const liquidGlassTextShader = await readFile(join(directory, 'liquid-glass-text.glsl'), 'utf8');
+    const formatProfile = JSON.parse(await readFile(join(directory, 'format-profile.json'), 'utf8')) as { width: number; height: number; platform: string; safeAreaPixels: { right: number } };
     const libraryManifest = JSON.parse(await readFile(join(directory, 'motion-library.json'), 'utf8')) as { count: number; components: unknown[] };
     expect(source).toContain('Authored production timeline begins here.');
     expect(source).not.toContain('Motion without templates.');
     expect(source).not.toMatch(/#7c5cff|#6366f1|cards/i);
     await expect(access(join(directory, 'kinetic.ts'))).resolves.toBeUndefined();
     expect(kinetic).toContain('export function impactText');
+    expect(kinetic).toContain('export function prepareTrackReveal');
+    expect(kinetic).toContain('export function playTrackReveal');
     expect(kinetic).toContain('export function letterRise');
     expect(kinetic).toContain('export function gradientSweep');
+    expect(kinetic).toContain('export function* specularTextSweep');
     expect(kinetic).toContain('export function* eraseAndType');
     expect(kinetic).toContain('export function* pushText');
     expect(kinetic).toContain('export function arrangeTextRow');
     expect(librarySource).toContain('export function ProductFrame');
     expect(librarySource).toContain('export function cameraMove');
+    expect(librarySource).toContain('export function SpecularTextStack');
+    expect(captionSource).toContain('export function* playWordFollowCaption');
+    expect(formatSource).toContain('export function PortraitProductStage');
+    expect(proceduralSource).toContain('export function FlowField');
+    expect(ambientSource).toContain('export function* ambientDrift');
+    expect(ambientSource).toContain('export function ambientCamera');
+    expect(ambientSource).toContain('export function* ambientParallax');
+    expect(ambientSource).toContain('export function runWithAmbientMotion');
+    expect(vectorSource).toContain('export function* morphVectorPath');
+    expect(threeEffectsSource).toContain('export function createPostProcessing');
+    expect(opticalGlassSource).toContain('export function OpticalGlass');
+    expect(opticalGlassShader).toContain('destinationTexture');
+    expect(liquidGlassTextSource).toContain('export function LiquidGlassText');
+    expect(liquidGlassTextShader).toContain('glyphMask');
+    expect(liquidGlassTextShader).toContain('destinationTexture');
+    expect(formatProfile).toMatchObject({ width: 1080, height: 1920, platform: 'tiktok' });
+    expect(formatProfile.safeAreaPixels.right).toBeGreaterThan(0);
+    expect(project.formatProfile).toMatchObject({ id: 'portrait', width: 1080, height: 1920, platform: 'tiktok' });
     expect(libraryManifest.count).toBe(motionComponentLibrary.length);
     expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['kinetic.ts', 'motion-library.json', 'motion-library.tsx', 'project.tsx', 'scene.tsx']));
+    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene.tsx', 'three-effects.ts', 'vector-motion.ts']));
     await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
   });
 
   it('searches a broad component vocabulary by intent without returning a default template', () => {
-    expect(motionComponentLibrary.length).toBeGreaterThanOrEqual(50);
+    expect(motionComponentLibrary.length).toBeGreaterThanOrEqual(80);
     expect(searchMotionComponents({ query: 'interface assembly' }).map((item) => item.id)).toContain('interface-assembly');
     expect(searchMotionComponents({ query: 'camera follows the assembling navigation' }).map((item) => item.id)).toContain('interface-assembly');
     const cameras = searchMotionComponents({ categories: ['camera'], energy: ['impact'], limit: 20 });
     expect(cameras.length).toBeGreaterThan(0);
     expect(cameras.every((item) => item.category === 'camera' && item.energy.includes('impact'))).toBe(true);
+    expect(searchMotionComponents({ query: 'vertical captions follow spoken words' }).map((item) => item.id)).toContain('word-follow-caption');
+    expect(searchMotionComponents({ query: 'portrait product safe area' }).map((item) => item.id)).toContain('portrait-product-stage');
+    expect(searchMotionComponents({ query: 'specular light crossing text' }).map((item) => item.id)).toContain('specular-text-sweep');
+    expect(searchMotionComponents({ query: 'continuous camera movement through the whole shot' }).map((item) => item.id)).toContain('ambient-camera-rig');
+    expect(searchMotionComponents({ query: 'background continuously drifting while the scene plays' }).map((item) => item.id)).toContain('continuous-ambient-field');
+    expect(searchMotionComponents({ query: 'optical liquid glass refraction' }).map((item) => item.id)).toContain('optical-liquid-glass');
+    expect(searchMotionComponents({ query: 'liquid glass text refraction' }).map((item) => item.id)).toContain('liquid-glass-text');
+  });
+});
+
+describe('adaptive formats and captions', () => {
+  it('resolves a vertical social composition with editable platform safe areas', () => {
+    const profile = resolveVideoFormat({ format: 'portrait', platform: 'instagram-reels' });
+    expect(profile).toMatchObject({ id: 'portrait', width: 1080, height: 1920, aspectRatio: '9:16', platform: 'instagram-reels' });
+    expect(profile.safeAreaPixels.bottom).toBe(Math.round(1920 * profile.safeArea.bottom));
+    expect(resolveVideoFormat({ width: 1200, height: 1200 }).id).toBe('square');
+    expect(() => resolveVideoFormat({ safeArea: { left: 0.5 } })).toThrow(/safeArea.left/);
+  });
+
+  it('parses cue captions, labels interpolation honestly, and writes reviewable timing JSON', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-captions-'));
+    const input = join(directory, 'captions.srt');
+    const output = join(directory, 'caption-timing.json');
+    await writeFile(input, '1\n00:00:00,000 --> 00:00:02,000\nSua ideia ganha movimento.\n');
+    const document = await prepareCaptionTiming({ inputPath: input, outputPath: output });
+    expect(document).toMatchObject({ precision: 'cue-interpolated', duration: 2, outputPath: output });
+    expect(document.cues[0].words.map((word) => word.text)).toEqual(['Sua', 'ideia', 'ganha', 'movimento.']);
+    expect(document.qa.metrics.approximateWords).toBe(4);
+    expect(document.qa.issues.map((issue) => issue.code)).toContain('approximate-word-timing');
+    await expect(reviewCaptionTiming(output)).resolves.toMatchObject({ passed: true, metrics: { approximateWords: 4 } });
+  });
+
+  it('preserves supplied word-exact timing instead of reclassifying it as interpolation', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-word-timing-'));
+    const input = join(directory, 'exact.json');
+    const output = join(directory, 'normalized.json');
+    await writeFile(input, JSON.stringify({ cues: [{
+      id: 'line-1', start: 0, end: 1.2, text: 'Move com intenção', precision: 'word-exact',
+      words: [
+        { text: 'Move', start: 0, end: 0.35 },
+        { text: 'com', start: 0.35, end: 0.65 },
+        { text: 'intenção', start: 0.65, end: 1.2 },
+      ],
+    }] }));
+    const document = await prepareCaptionTiming({ inputPath: input, outputPath: output });
+    expect(document.precision).toBe('word-exact');
+    expect(document.qa.metrics.approximateWords).toBe(0);
+    await expect(reviewCaptionTiming(output)).resolves.toMatchObject({ passed: true, metrics: { approximateWords: 0 } });
   });
 });
 

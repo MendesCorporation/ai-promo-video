@@ -8,6 +8,8 @@ export * from './render/renderer.js';
 export * from './render/probe.js';
 export * from './advanced/engine.js';
 export * from './advanced/library.js';
+export * from './advanced/formats.js';
+export * from './captions/timing.js';
 export * from './media/edit.js';
 export * from './library/license.js';
 export * from './library/local.js';

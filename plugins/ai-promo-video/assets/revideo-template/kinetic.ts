@@ -1,7 +1,9 @@
 import {Gradient, Txt, blur} from '@revideo/2d';
 import {
+  Color,
   Reference,
   all,
+  delay,
   easeInCubic,
   easeInOutCubic,
   easeOutBack,
@@ -18,20 +20,35 @@ export interface TrackRevealOptions {
   blur?: number;
 }
 
-/** Resolve tracking, scale, blur, and opacity as one designed text entrance. */
-export function trackReveal(ref: Reference<Txt>, options: TrackRevealOptions = {}) {
+/** Prepare the hidden state before this text or any visible parent is revealed. */
+export function prepareTrackReveal(ref: Reference<Txt>, options: TrackRevealOptions = {}) {
   const node = ref();
-  const duration = options.duration ?? 0.7;
   node.opacity(0);
   node.scale(options.fromScale ?? 0.9);
   node.letterSpacing(options.fromTracking ?? 26);
   node.filters([blur(options.blur ?? 9)]);
+}
+
+/** Play a tracking reveal that has already been prepared off screen. */
+export function playTrackReveal(ref: Reference<Txt>, options: TrackRevealOptions = {}) {
+  const node = ref();
+  const duration = options.duration ?? 0.7;
   return all(
     node.opacity(1, duration * 0.62, easeOutCubic),
     node.scale(1, duration, easeOutBack),
     node.letterSpacing(options.toTracking ?? 0, duration, easeOutCubic),
     node.filters.blur(0, duration, easeOutCubic),
   );
+}
+
+/**
+ * Prepare and immediately play a tracking reveal. Safe at the start of a scene;
+ * for delayed reveals, call prepareTrackReveal before the parent becomes visible
+ * and playTrackReveal at the authored cue.
+ */
+export function trackReveal(ref: Reference<Txt>, options: TrackRevealOptions = {}) {
+  prepareTrackReveal(ref, options);
+  return playTrackReveal(ref, options);
 }
 
 export interface WordCascadeOptions {
@@ -137,6 +154,104 @@ export function gradientSweep(ref: Reference<Txt>, duration: number, options: Gr
   return all(
     gradient.from([0, 0], duration, easeInOutCubic),
     gradient.to([end, 0], duration, easeInOutCubic),
+  );
+}
+
+export interface SpecularTextSweepOptions {
+  /** Direction of travel through the glyphs. */
+  direction?: 1 | -1;
+  /** Gradient-axis angle in degrees. */
+  angle?: number;
+  /** Distance from the hidden start to hidden end in local text coordinates. */
+  travel?: number;
+  /** Length of each gradient along its axis. */
+  span?: number;
+  softColor?: string;
+  coreColor?: string;
+  softOpacity?: number;
+  coreOpacity?: number;
+  softWidth?: number;
+  coreWidth?: number;
+  softGlow?: number;
+  coreGlow?: number;
+  coreDelay?: number;
+  fadeDuration?: number;
+}
+
+function alphaColor(value: string, alpha: number): string {
+  const color = new Color(value);
+  return new Color({r: color.r * 255, g: color.g * 255, b: color.b * 255, a: alpha}).serialize();
+}
+
+function specularStops(color: string, opacity: number, width: number) {
+  const band = Math.min(0.46, Math.max(0.006, width));
+  return [
+    {offset: 0, color: alphaColor(color, 0)},
+    {offset: 0.5 - band, color: alphaColor(color, 0)},
+    {offset: 0.5, color: alphaColor(color, opacity)},
+    {offset: 0.5 + band, color: alphaColor(color, 0)},
+    {offset: 1, color: alphaColor(color, 0)},
+  ];
+}
+
+/**
+ * Pass a broad reflection and a crisp light core across prepared text layers.
+ * Create the base and both overlays with SpecularTextStack at scene setup so
+ * browsers never relayout dynamically inserted glyphs on the first light frame.
+ */
+export function* specularTextSweep(softRef: Reference<Txt>, coreRef: Reference<Txt>, duration = 1.5, options: SpecularTextSweepOptions = {}) {
+  const soft = softRef();
+  const core = coreRef();
+  const size = soft.size();
+  const direction = options.direction ?? 1;
+  const angle = (options.angle ?? 52) * Math.PI / 180;
+  const axis: [number, number] = [Math.cos(angle) * direction, Math.sin(angle) * direction];
+  const travel = options.travel ?? Math.max(size.x, size.y) * 1.3;
+  const span = options.span ?? Math.max(size.x, size.y) * 0.72;
+  const startCenter: [number, number] = [-axis[0] * travel, -axis[1] * travel];
+  const endCenter: [number, number] = [axis[0] * travel, axis[1] * travel];
+  const endpoints = (center: [number, number]) => ({
+    from: [center[0] - axis[0] * span / 2, center[1] - axis[1] * span / 2] as [number, number],
+    to: [center[0] + axis[0] * span / 2, center[1] + axis[1] * span / 2] as [number, number],
+  });
+  const start = endpoints(startCenter);
+  const end = endpoints(endCenter);
+  const softColor = options.softColor ?? '#ffd49a';
+  const coreColor = options.coreColor ?? '#fff8e8';
+  const softGradient = new Gradient({
+    type: 'linear',
+    from: start.from,
+    to: start.to,
+    stops: specularStops(softColor, options.softOpacity ?? 0.46, options.softWidth ?? 0.18),
+  });
+  const coreGradient = new Gradient({
+    type: 'linear',
+    from: start.from,
+    to: start.to,
+    stops: specularStops(coreColor, options.coreOpacity ?? 0.96, options.coreWidth ?? 0.025),
+  });
+  soft.fill(softGradient);
+  soft.shadowColor(alphaColor(softColor, options.softOpacity ?? 0.46));
+  soft.shadowBlur(options.softGlow ?? 28);
+  core.fill(coreGradient);
+  core.shadowColor(alphaColor(coreColor, options.coreOpacity ?? 0.96));
+  core.shadowBlur(options.coreGlow ?? 10);
+  soft.opacity(1);
+  core.opacity(1);
+
+  const coreDelay = Math.max(0, Math.min(duration * 0.4, options.coreDelay ?? 0.05));
+  yield* all(
+    softGradient.from(end.from, duration, easeInOutCubic),
+    softGradient.to(end.to, duration, easeInOutCubic),
+    delay(coreDelay, all(
+      coreGradient.from(end.from, Math.max(0.01, duration - coreDelay), easeInOutCubic),
+      coreGradient.to(end.to, Math.max(0.01, duration - coreDelay), easeInOutCubic),
+    )),
+  );
+  const fadeDuration = options.fadeDuration ?? 0.18;
+  yield* all(
+    soft.opacity(0, fadeDuration, easeOutCubic),
+    core.opacity(0, fadeDuration, easeOutCubic),
   );
 }
 

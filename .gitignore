@@ -36,6 +36,7 @@ plugins/ai-promo-video/examples/**/captures/**
 plugins/ai-promo-video/examples/**/public/**
 plugins/ai-promo-video/examples/**/advanced/public/**
 plugins/ai-promo-video/examples/**/source-review/**
+plugins/ai-promo-video/examples/**/review*/**
 plugins/ai-promo-video/examples/**/inspect-*.png
 plugins/ai-promo-video/examples/**/*.mp3
 plugins/ai-promo-video/examples/**/*.webm
@@ -46,6 +47,7 @@ plugins/ai-promo-video/examples/**/manifest.json
 
 # Ignore every example render, then keep only the three README demos.
 plugins/ai-promo-video/examples/**/output/**
+plugins/ai-promo-video/examples/component-showcase/**
 !plugins/ai-promo-video/examples/motion-benchmark/output/signalnest-motion-benchmark-kinetic-v3-final-56s.mp4
 !plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4
 !plugins/ai-promo-video/examples/qanode/output/menu-assembly/

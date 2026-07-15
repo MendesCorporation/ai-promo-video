@@ -9,6 +9,8 @@ import { createVisualReviewPack, extractReviewFrames, probeVideo } from './rende
 import { renderFromSpecFile } from './render/renderer.js';
 import { motionCapabilities, patchAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from './advanced/engine.js';
 import { motionComponentLibrary, searchMotionComponents, type MotionComponentCategory, type MotionEnergy } from './advanced/library.js';
+import { platformTargets, videoFormatIds, videoFormatProfiles, type PlatformTarget, type VideoFormatId } from './advanced/formats.js';
+import { prepareCaptionTiming, reviewCaptionTiming } from './captions/timing.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from './media/edit.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos, type AssetSearchProvider, type VideoSearchProvider } from './library/search.js';
 import type { MediaOrientation } from './types.js';
@@ -147,6 +149,8 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
     }
     case 'motion:capabilities':
       return motionCapabilities;
+    case 'format:list':
+      return { formats: videoFormatProfiles, platforms: platformTargets, note: 'Safe areas are conservative editable authoring defaults; verify the current publishing UI before delivery.' };
     case 'motion:search': {
       const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
       return searchMotionComponents({
@@ -171,10 +175,22 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       return scaffoldAdvancedProject({
         outputDir,
         name: typeof flags.name === 'string' ? flags.name : 'Advanced AI Promo',
+        format: typeof flags.format === 'string' ? enumFlag<VideoFormatId>(flags.format, videoFormatIds, 'landscape', 'format') : undefined,
+        platform: typeof flags.platform === 'string' ? enumFlag<PlatformTarget>(flags.platform, platformTargets, 'generic', 'platform') : undefined,
         width: typeof flags.width === 'string' ? Number(flags.width) : undefined,
         height: typeof flags.height === 'string' ? Number(flags.height) : undefined,
         fps: typeof flags.fps === 'string' ? Number(flags.fps) : undefined,
       });
+    }
+    case 'caption:prepare': {
+      const inputPath = args[0];
+      if (!inputPath) throw new Error('Usage: ai-promo caption:prepare <captions.srt|vtt|json> [--output caption-timing.json]');
+      return prepareCaptionTiming({ inputPath, outputPath: typeof flags.output === 'string' ? flags.output : undefined });
+    }
+    case 'caption:review': {
+      const inputPath = args[0];
+      if (!inputPath) throw new Error('Usage: ai-promo caption:review <caption-timing.json>');
+      return reviewCaptionTiming(inputPath);
     }
     case 'advanced:render': {
       const projectFile = args[0];

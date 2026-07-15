@@ -3,15 +3,15 @@ import {makeProject} from '@revideo/core';
 import scene from './scene';
 
 export default makeProject({
-  name: '__PROJECT_NAME__',
+  name: 'Revideo shader scene-context regression',
   experimentalFeatures: true,
   scenes: [scene],
   settings: {
     shared: {
-      size: {x: __WIDTH__, y: __HEIGHT__},
-      background: '#000000',
+      size: {x: 480, y: 270},
+      background: '#070814',
     },
-    rendering: {fps: __FPS__},
-    preview: {fps: __FPS__},
+    rendering: {fps: 30},
+    preview: {fps: 30},
   },
 });

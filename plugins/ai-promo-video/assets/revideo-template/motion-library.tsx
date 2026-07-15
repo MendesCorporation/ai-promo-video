@@ -1,5 +1,6 @@
 /** @jsxImportSource @revideo/2d/lib */
-import {Circle, Gradient, Line, Path, Rect, Txt, blur} from '@revideo/2d';
+import {Circle, Gradient, Layout, Line, Path, Rect, Txt, blur} from '@revideo/2d';
+import type {TxtProps} from '@revideo/2d';
 import {Reference, all, easeInOutCubic, easeOutBack, easeOutCubic, sequence} from '@revideo/core';
 
 export type Point = [number, number];
@@ -135,6 +136,24 @@ export function ParticleField({width = 1920, height = 1080, count = 46, seed = 1
     <Rect ref={ref} width={width} height={height} clip>
       {points.map((point) => <Circle x={point.x} y={point.y} size={point.size} fill={point.color} opacity={point.alpha} />)}
     </Rect>
+  );
+}
+
+export type SpecularTextStackProps = Omit<TxtProps, 'ref'> & {
+  baseRef: Reference<Txt>;
+  softRef: Reference<Txt>;
+  coreRef: Reference<Txt>;
+  ref?: Reference<Layout>;
+};
+
+/** Prebuild aligned base, reflection, and light-core glyph layers. */
+export function SpecularTextStack({baseRef, softRef, coreRef, ref, fill = '#ffffff', ...props}: SpecularTextStackProps) {
+  return (
+    <Layout ref={ref}>
+      <Txt {...props} ref={baseRef} fill={fill} />
+      <Txt {...props} ref={softRef} fill={'#00000000'} opacity={0} shadowColor={'#00000000'} shadowBlur={0} />
+      <Txt {...props} ref={coreRef} fill={'#00000000'} opacity={0} shadowColor={'#00000000'} shadowBlur={0} />
+    </Layout>
   );
 }
 

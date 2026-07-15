@@ -54,6 +54,10 @@ async function render(options: AdvancedRenderParentMessage['options']): Promise<
     '@revideo/ui',
     '@revideo/vite-plugin',
     'three',
+    'flubber',
+    'opentype.js',
+    'postprocessing',
+    'simplex-noise',
   ].map((name) => ({ find: name, replacement: packageDirectory(name) }));
   const projectSettings = {
     ...(options.width && options.height ? { size: { x: options.width, y: options.height } } : {}),

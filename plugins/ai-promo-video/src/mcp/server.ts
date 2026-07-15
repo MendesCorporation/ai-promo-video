@@ -17,6 +17,8 @@ import { renderFromSpecFile } from '../render/renderer.js';
 import { validateSpec } from '../commands.js';
 import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, saveAdvancedProjectFile, scaffoldAdvancedProject } from '../advanced/engine.js';
 import { motionComponentCategories, motionComponentLibrary, motionLibrarySummary, searchMotionComponents } from '../advanced/library.js';
+import { platformTargets, resolveVideoFormat, videoFormatIds, videoFormatProfiles } from '../advanced/formats.js';
+import { prepareCaptionTiming, reviewCaptionTiming } from '../captions/timing.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from '../media/edit.js';
 import { cleanDeliveryOutput } from '../media/cleanup.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos } from '../library/search.js';
@@ -25,6 +27,7 @@ const skillDirectory = fileURLToPath(new URL('../../skills/create-ai-promo-video
 const directorGuide = await readFile(join(skillDirectory, 'SKILL.md'), 'utf8');
 const referenceNames = [
   'advanced-motion',
+  'vertical-and-captions',
   'component-library',
   'capture-spec',
   'free-media-sourcing',
@@ -37,10 +40,10 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.2.3',
+  version: '0.4.0',
 }, {
   capabilities: { logging: {} },
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
 });
 
 function response(value: unknown) {
@@ -340,12 +343,38 @@ server.registerTool('list_motion_capabilities', {
   inputSchema: {},
 }, async () => response(motionCapabilities));
 
+server.registerTool('list_format_profiles', {
+  title: 'List Video Format Profiles',
+  description: 'List landscape, portrait, and square composition profiles plus conservative platform safe-area defaults for generic delivery, TikTok, Instagram Reels, and YouTube Shorts.',
+  inputSchema: {
+    format: z.enum(videoFormatIds).optional(),
+    platform: z.enum(platformTargets).optional(),
+  },
+}, async ({ format, platform }) => response(format || platform
+  ? resolveVideoFormat({ format, platform })
+  : { formats: videoFormatProfiles, platforms: platformTargets, note: 'Safe areas are editable authoring defaults; verify the current publishing UI before delivery.' }));
+
+server.registerTool('prepare_caption_timing', {
+  title: 'Prepare Kinetic Caption Timing',
+  description: 'Parse SRT, WebVTT, cue JSON, or exact word-timing JSON into deterministic caption-timing JSON. Cue-only sources receive explicitly labeled approximate per-word interpolation and timing QA.',
+  inputSchema: {
+    inputPath: z.string().min(1),
+    outputPath: z.string().optional(),
+  },
+}, async (options) => response(await prepareCaptionTiming(options)));
+
+server.registerTool('review_caption_timing', {
+  title: 'Review Caption Timing',
+  description: 'Review normalized caption timing for invalid ranges, overlaps, excessive reading speed, long phrases, dense words, and approximate alignment before animation.',
+  inputSchema: { captionTimingPath: z.string().min(1) },
+}, async ({ captionTimingPath }) => response(await reviewCaptionTiming(captionTimingPath)));
+
 server.registerTool('search_motion_components', {
   title: 'Search Motion Components',
   description: 'Search the reusable motion vocabulary by narrative need, category, mood, tags, or energy. Results are building blocks and recipes, never a default template or required visual style.',
   inputSchema: {
     query: z.string().optional(),
-    categories: z.array(z.enum(motionComponentCategories)).max(10).optional(),
+    categories: z.array(z.enum(motionComponentCategories)).max(motionComponentCategories.length).optional(),
     tags: z.array(z.string().min(1)).max(12).optional(),
     moods: z.array(z.string().min(1)).max(12).optional(),
     energy: z.array(z.enum(['quiet', 'measured', 'energetic', 'impact'])).max(4).optional(),
@@ -372,8 +401,10 @@ server.registerTool('scaffold_advanced_video', {
   inputSchema: {
     outputDir: z.string().min(1),
     name: z.string().min(1),
-    width: z.number().int().min(640).max(3840).default(1920),
-    height: z.number().int().min(360).max(2160).default(1080),
+    format: z.enum(videoFormatIds).optional(),
+    platform: z.enum(platformTargets).optional(),
+    width: z.number().int().min(640).max(3840).optional(),
+    height: z.number().int().min(360).max(3840).optional(),
     fps: z.number().int().min(24).max(60).default(30),
   },
 }, async (options) => response(await scaffoldAdvancedProject(options)));
