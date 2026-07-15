@@ -211,9 +211,12 @@ describe('advanced project source', () => {
 
 describe('universal client installation', () => {
   it('selects clients and safety flags from one npx-compatible command', () => {
+    expect(parseInstallArgs(['install']).clients).toEqual(['codex', 'claude-code', 'cursor']);
     expect(parseInstallArgs(['install', '--clients', 'codex,cursor', '--dry-run'])).toMatchObject({
       clients: ['codex', 'cursor'], dryRun: true, skipBrowser: false,
     });
+    expect(parseInstallArgs(['install', '--clients', 'claude'])).toMatchObject({ clients: ['claude-code'] });
+    expect(parseInstallArgs(['install', '--clients', 'claude-code'])).toMatchObject({ clients: ['claude-code'] });
     expect(() => parseInstallArgs(['--clients', 'unknown'])).toThrow(/accepts codex/);
   });
 });

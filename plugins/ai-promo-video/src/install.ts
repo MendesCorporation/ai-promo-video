@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-type ClientName = 'codex' | 'claude' | 'cursor';
+type ClientName = 'codex' | 'claude-code' | 'cursor';
 
 export interface InstallOptions {
   clients: ClientName[];
@@ -27,7 +27,8 @@ Usage:
   npx github:MendesCorporation/ai-promo-video install [options]
 
 Options:
-  --clients codex,claude,cursor  Clients to configure (default: all)
+  --clients codex,claude-code,cursor  Clients to configure (default: all)
+                                      "claude" remains a compatibility alias for "claude-code"
   --runtime-dir PATH            Stable runtime destination
   --skip-browser               Do not install Playwright Chromium
   --dry-run                    Print actions without changing the machine
@@ -43,7 +44,7 @@ function optionValue(args: string[], index: number, name: string): string {
 
 export function parseInstallArgs(args: string[]): InstallOptions {
   const options: InstallOptions = {
-    clients: ['codex', 'claude', 'cursor'],
+    clients: ['codex', 'claude-code', 'cursor'],
     dryRun: false,
     skipBrowser: false,
     help: false,
@@ -57,10 +58,13 @@ export function parseInstallArgs(args: string[]): InstallOptions {
     else if (arg === '--runtime-dir') options.runtimeDir = optionValue(args, index++, arg);
     else if (arg === '--home') options.homeDir = optionValue(args, index++, arg);
     else if (arg === '--clients') {
-      const requested = optionValue(args, index++, arg).split(',').map((value) => value.trim()).filter(Boolean);
-      const allowed = new Set<ClientName>(['codex', 'claude', 'cursor']);
+      const requested = optionValue(args, index++, arg)
+        .split(',')
+        .map((value) => value.trim() === 'claude' ? 'claude-code' : value.trim())
+        .filter(Boolean);
+      const allowed = new Set<ClientName>(['codex', 'claude-code', 'cursor']);
       if (requested.length === 0 || requested.some((value) => !allowed.has(value as ClientName))) {
-        throw new Error('--clients accepts codex, claude, and/or cursor');
+        throw new Error('--clients accepts codex, claude-code (or the claude alias), and/or cursor');
       }
       options.clients = [...new Set(requested as ClientName[])];
     } else throw new Error(`Unknown installer option: ${arg}`);
@@ -136,6 +140,7 @@ async function materializeSkill(source: string, destination: string, dryRun: boo
   await rm(destination, { recursive: true, force: true });
   await mkdir(dirname(destination), { recursive: true });
   await cp(source, destination, { recursive: true });
+  if (!await exists(join(destination, 'SKILL.md'))) throw new Error(`Installed Skill is missing SKILL.md: ${destination}`);
 }
 
 async function mergeJsonMcp(path: string, entry: Record<string, unknown>, dryRun: boolean): Promise<void> {
@@ -184,8 +189,9 @@ async function configureClients(runtimeDir: string, home: string, options: Insta
   const serverPath = join(runtimeDir, 'dist', 'mcp', 'server.js');
   const skillSource = join(runtimeDir, 'skills', skillName);
   for (const client of options.clients) {
-    const skillRoot = client === 'codex' ? '.agents' : client === 'claude' ? '.claude' : '.cursor';
-    await materializeSkill(skillSource, join(home, skillRoot, 'skills', skillName), options.dryRun);
+    const skillRoot = client === 'codex' ? '.agents' : client === 'claude-code' ? '.claude' : '.cursor';
+    const skillDestination = join(home, skillRoot, 'skills', skillName);
+    await materializeSkill(skillSource, skillDestination, options.dryRun);
     if (client === 'codex') {
       if (!options.homeDir && commandExists('codex')) {
         run('codex', ['mcp', 'remove', serverName], { dryRun: options.dryRun, allowFailure: true });
@@ -193,7 +199,7 @@ async function configureClients(runtimeDir: string, home: string, options: Insta
       } else {
         await configureCodexFallback(join(home, '.codex', 'config.toml'), process.execPath, serverPath, options.dryRun);
       }
-    } else if (client === 'claude') {
+    } else if (client === 'claude-code') {
       if (!options.homeDir && commandExists('claude')) {
         run('claude', ['mcp', 'remove', '--scope', 'user', serverName], { dryRun: options.dryRun, allowFailure: true });
         run('claude', ['mcp', 'add', '--transport', 'stdio', '--scope', 'user', serverName, '--', process.execPath, serverPath], { dryRun: options.dryRun });
@@ -202,6 +208,8 @@ async function configureClients(runtimeDir: string, home: string, options: Insta
           type: 'stdio', command: process.execPath, args: [serverPath], env: {},
         }, options.dryRun);
       }
+      console.log(`Claude Code Skill command: /${skillName}`);
+      console.log('Claude app Chat and claude.ai use separate cloud Skills and do not read ~/.claude/skills. Open a new Claude Code session to use this installation.');
     } else {
       await mergeJsonMcp(join(home, '.cursor', 'mcp.json'), {
         command: process.execPath, args: [serverPath], env: {},

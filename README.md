@@ -70,12 +70,15 @@ npx --yes github:MendesCorporation/ai-promo-video install
 
 The installer downloads a stable local runtime, installs production dependencies and Playwright Chromium, installs the `create-ai-promo-video` Skill, and registers the `ai-promo-video` MCP server in all three clients. Existing unrelated Skills and MCP servers are preserved.
 
+`Claude Code` here means the Claude Code agent surface. It does not mean a regular Claude Chat conversation. Claude Chat and claude.ai use separately uploaded cloud Skills and do not discover filesystem Skills from `~/.claude/skills`. In Claude Code, verify this installation with `/create-ai-promo-video` and `claude mcp get ai-promo-video`.
+
 Restart the agent client after installation, then ask it to create a professional promo video.
 
 Install for selected clients only or preview every planned change:
 
 ```bash
 npx --yes github:MendesCorporation/ai-promo-video install --clients codex,cursor
+npx --yes github:MendesCorporation/ai-promo-video install --clients claude-code
 npx --yes github:MendesCorporation/ai-promo-video install --dry-run
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: create-ai-promo-video
-description: Direct, source, record, compose, render, edit, and visually review professional AI-authored promo videos with the local ai-promo-video MCP/CLI. Use for SaaS, product, brand, launch, feature, demo, emotional, or social videos that need real footage, licensed free stock video, images, SVGs, animations, designed motion, perspective, cursor choreography, licensed free music, and incremental revisions without a GUI, paid media, local model, or bundled AI model.
+description: Directs, sources, records, composes, renders, edits, and visually reviews professional AI-authored promo videos with the local ai-promo-video MCP/CLI. Use for SaaS, product, brand, launch, feature, demo, emotional, or social videos that need real footage, licensed free stock video, images, SVGs, animations, designed motion, perspective, cursor choreography, licensed free music, and incremental revisions without a GUI, paid media, local model, or bundled AI model.
 ---
 
 # Create AI Promo Video
