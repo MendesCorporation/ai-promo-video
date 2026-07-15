@@ -8,29 +8,23 @@ This is not a slideshow generator. The professional engine is built on Revideo a
 
 ## See what it can already do
 
-The covers below link to the final MP4 files included in the repository.
+The videos below play directly on GitHub. The full-resolution final MP4 files also remain versioned with their editable examples.
 
 ### SignalNest — SaaS motion benchmark · 56 seconds
 
-[![Watch the SignalNest motion benchmark](docs/media/signalnest-demo.jpg)](plugins/ai-promo-video/examples/motion-benchmark/output/signalnest-motion-benchmark-kinetic-v3-final-56s.mp4)
-
-[Watch the MP4](plugins/ai-promo-video/examples/motion-benchmark/output/signalnest-motion-benchmark-kinetic-v3-final-56s.mp4)
+https://github.com/user-attachments/assets/ca33b482-2330-46d2-a270-008b0d717a9a
 
 A fully procedural composition created to test the visual language of a polished SaaS launch: per-word and per-letter motion, animated gradients, erase and rewrite effects, text pushing other text, typography-driven masks, particles, orbit systems, perspective UI, cards assembled in the scene, automation traces, and a final CTA. Music: “Synth/bass Short or Intro” by griffon_designs, CC0 1.0.
 
 ### QANode — product assembly and camera motion · 9.6 seconds
 
-[![Watch the QANode demonstration](docs/media/qanode-demo.jpg)](plugins/ai-promo-video/examples/qanode/output/menu-assembly/qanode-menu-assembly-final.mp4)
-
-[Watch the MP4](plugins/ai-promo-video/examples/qanode/output/menu-assembly/qanode-menu-assembly-final.mp4)
+https://github.com/user-attachments/assets/09ed9971-f1de-4b95-8300-4b29ab71a49c
 
 The interface begins empty. The camera locks onto the left navigation while each menu item is created, follows the click on **Scenarios**, shifts its focus, and reveals the list row by row. The product screen was reconstructed as an animatable composition instead of relying on a rigid transition to a screenshot.
 
 ### AINDA — emotional storytelling · 61 seconds
 
-[![Watch the AINDA short film](docs/media/auto-superacao-demo.jpg)](plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4)
-
-[Watch the MP4](plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4)
+https://github.com/user-attachments/assets/93ade655-8b51-44e9-9218-bf3950bd7ab7
 
 A test outside the SaaS category designed to prove narrative direction: freely licensed online footage, music-driven editing, pacing, atmosphere, image treatment, and emotional typography. Music: “Emotional Original Soundtrack — BETTER LIFE” by Magmi.Soundtracks, CC BY 4.0. Complete media credits remain with the project.
 
