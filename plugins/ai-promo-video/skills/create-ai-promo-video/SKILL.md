@@ -47,7 +47,7 @@ The version 1 JSON renderer is legacy compatibility only. Use it when the user s
 
 ## Tool Boundary
 
-Use MCP when available and CLI for debugging or automation. The Skill supplies judgment; MCP supplies motion-component discovery, licensed-media search and download, music analysis, capture, recording, source reading and editing, Revideo rendering, media editing, range replacement, visual access, cleanup, and QA. Neither provides or selects an AI model. If the host does not discover filesystem Skills, invoke the MCP prompt `create-ai-promo-video` or read `ai-promo://director-guide` before planning the production.
+Use MCP when available and CLI for debugging or automation. The Skill supplies judgment; MCP supplies motion-component discovery, licensed-media search and download, music analysis, capture, recording, source reading and editing, Revideo rendering, media editing, range replacement, visual access, cleanup, and QA. Neither provides or selects an AI model. If the host does not discover filesystem Skills, invoke the MCP prompt `create-ai-promo-video`, read `ai-promo://director-guide`, or call `load_director_guide` before planning the production. Claude Desktop Home uses these MCP routes; Claude Code and the Claude app's Code tab also receive the same filesystem Skill under `~/.claude/skills`.
 
 ## Completion Gate
 

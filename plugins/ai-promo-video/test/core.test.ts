@@ -14,7 +14,16 @@ import { normalizePexelsPhoto, normalizePexelsVideo } from '../src/library/pexel
 import { CaptureSpecSchema, VideoSpecSchema } from '../src/types.js';
 import { validateSpec } from '../src/commands.js';
 import { cleanDeliveryOutput } from '../src/media/cleanup.js';
-import { parseInstallArgs } from '../src/install.js';
+import {
+  clientMcpConfigPath,
+  clientSkillDestination,
+  defaultClaudeDesktopConfigPath,
+  defaultRuntimeDir,
+  parseInstallArgs,
+  parseWindowsWhereOutput,
+  windowsClaudeDesktopStoreConfigPath,
+  windowsCommandNeedsShell,
+} from '../src/install.js';
 import { aggregateWorkerProgress } from '../src/advanced/render-protocol.js';
 
 function plan() {
@@ -211,13 +220,54 @@ describe('advanced project source', () => {
 
 describe('universal client installation', () => {
   it('selects clients and safety flags from one npx-compatible command', () => {
-    expect(parseInstallArgs(['install']).clients).toEqual(['codex', 'claude-code', 'cursor']);
+    expect(parseInstallArgs(['install']).clients).toEqual(['codex', 'claude-code', 'claude-desktop', 'cursor']);
     expect(parseInstallArgs(['install', '--clients', 'codex,cursor', '--dry-run'])).toMatchObject({
       clients: ['codex', 'cursor'], dryRun: true, skipBrowser: false,
     });
-    expect(parseInstallArgs(['install', '--clients', 'claude'])).toMatchObject({ clients: ['claude-code'] });
+    expect(parseInstallArgs(['install', '--clients', 'claude'])).toMatchObject({ clients: ['claude-code', 'claude-desktop'] });
     expect(parseInstallArgs(['install', '--clients', 'claude-code'])).toMatchObject({ clients: ['claude-code'] });
+    expect(parseInstallArgs(['install', '--clients', 'claude-desktop'])).toMatchObject({ clients: ['claude-desktop'] });
     expect(() => parseInstallArgs(['--clients', 'unknown'])).toThrow(/accepts codex/);
+  });
+
+  it('uses native Windows user locations for runtimes, Skills, and MCP configuration', () => {
+    const home = 'C:\\Users\\Helio';
+    const env = {
+      LOCALAPPDATA: 'C:\\Users\\Helio\\AppData\\Local',
+      APPDATA: 'C:\\Users\\Helio\\AppData\\Roaming',
+    };
+    expect(defaultRuntimeDir(home, 'win32', env)).toBe('C:\\Users\\Helio\\AppData\\Local\\ai-promo-video');
+    expect(defaultRuntimeDir(home, 'win32', {})).toBe('C:\\Users\\Helio\\AppData\\Local\\ai-promo-video');
+    expect(clientSkillDestination(home, 'codex', 'win32')).toBe('C:\\Users\\Helio\\.agents\\skills\\create-ai-promo-video');
+    expect(clientSkillDestination(home, 'claude-code', 'win32')).toBe('C:\\Users\\Helio\\.claude\\skills\\create-ai-promo-video');
+    expect(clientSkillDestination(home, 'cursor', 'win32')).toBe('C:\\Users\\Helio\\.cursor\\skills\\create-ai-promo-video');
+    expect(clientMcpConfigPath(home, 'codex', 'win32')).toBe('C:\\Users\\Helio\\.codex\\config.toml');
+    expect(clientMcpConfigPath(home, 'claude-code', 'win32')).toBe('C:\\Users\\Helio\\.claude.json');
+    expect(clientMcpConfigPath(home, 'cursor', 'win32')).toBe('C:\\Users\\Helio\\.cursor\\mcp.json');
+    expect(defaultClaudeDesktopConfigPath(home, 'win32', env)).toBe('C:\\Users\\Helio\\AppData\\Roaming\\Claude\\claude_desktop_config.json');
+    expect(windowsClaudeDesktopStoreConfigPath(env.LOCALAPPDATA, 'Claude_pzs8sxrjxfjjc')).toBe(
+      'C:\\Users\\Helio\\AppData\\Local\\Packages\\Claude_pzs8sxrjxfjjc\\LocalCache\\Roaming\\Claude\\claude_desktop_config.json',
+    );
+  });
+
+  it('keeps native Windows and WSL installations in their respective homes', () => {
+    expect(defaultRuntimeDir('/home/helio', 'linux', {})).toBe('/home/helio/.local/share/ai-promo-video');
+    expect(clientMcpConfigPath('/home/helio', 'codex', 'linux')).toBe('/home/helio/.codex/config.toml');
+    expect(defaultClaudeDesktopConfigPath('/Users/helio', 'darwin', {})).toBe('/Users/helio/Library/Application Support/Claude/claude_desktop_config.json');
+  });
+
+  it('deduplicates where.exe results case-insensitively while retaining cmd and exe launchers', () => {
+    expect(parseWindowsWhereOutput([
+      'C:\\Users\\Helio\\AppData\\Roaming\\npm\\claude.cmd',
+      'c:\\users\\helio\\appdata\\roaming\\npm\\CLAUDE.CMD',
+      'C:\\Program Files\\Claude\\claude.exe',
+      '',
+    ].join('\r\n'))).toEqual([
+      'C:\\Users\\Helio\\AppData\\Roaming\\npm\\claude.cmd',
+      'C:\\Program Files\\Claude\\claude.exe',
+    ]);
+    expect(windowsCommandNeedsShell('C:\\Users\\Helio\\AppData\\Roaming\\npm\\claude.cmd')).toBe(true);
+    expect(windowsCommandNeedsShell('C:\\Program Files\\Claude\\claude.exe')).toBe(false);
   });
 });
 

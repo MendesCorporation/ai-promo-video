@@ -62,15 +62,20 @@ Requirements: Node.js 20 or newer on macOS, Linux, or Windows.
 
 ### Quick install
 
-Install AI Promo Video for Codex, Claude Code, and Cursor with one command:
+Install AI Promo Video for Codex, Claude Code, Claude Desktop, and Cursor with one command:
 
 ```bash
 npx --yes github:MendesCorporation/ai-promo-video install
 ```
 
-The installer downloads a stable local runtime, installs production dependencies and Playwright Chromium, installs the `create-ai-promo-video` Skill, and registers the `ai-promo-video` MCP server in all three clients. Existing unrelated Skills and MCP servers are preserved.
+The installer downloads a stable local runtime, installs production dependencies and Playwright Chromium, installs the `create-ai-promo-video` Skill, and registers the `ai-promo-video` MCP server in all four clients. Existing unrelated Skills and MCP servers are preserved.
 
-`Claude Code` here means the Claude Code agent surface. It does not mean a regular Claude Chat conversation. Claude Chat and claude.ai use separately uploaded cloud Skills and do not discover filesystem Skills from `~/.claude/skills`. In Claude Code, verify this installation with `/create-ai-promo-video` and `claude mcp get ai-promo-video`.
+Claude has two local surfaces with different extension mechanisms:
+
+- Claude Code, including the Claude app's **Code** tab, receives the filesystem Skill from `~/.claude/skills` and the user-scoped MCP server. Verify it with `/create-ai-promo-video` and `claude mcp get ai-promo-video`.
+- Claude Desktop's **Home** chat does not read filesystem Skills. It receives the same director guide through the local MCP server as server instructions, the `create-ai-promo-video` prompt, the `ai-promo://director-guide` resource, and the `load_director_guide` tool for clients that expose tools only. Fully quit and reopen Claude Desktop after installation.
+
+Regular claude.ai web conversations still use separately uploaded cloud Skills and do not read local files or local MCP configuration.
 
 Restart the agent client after installation, then ask it to create a professional promo video.
 
@@ -78,9 +83,23 @@ Install for selected clients only or preview every planned change:
 
 ```bash
 npx --yes github:MendesCorporation/ai-promo-video install --clients codex,cursor
+npx --yes github:MendesCorporation/ai-promo-video install --clients claude
 npx --yes github:MendesCorporation/ai-promo-video install --clients claude-code
+npx --yes github:MendesCorporation/ai-promo-video install --clients claude-desktop
 npx --yes github:MendesCorporation/ai-promo-video install --dry-run
 ```
+
+The `claude` alias configures both Claude Code and Claude Desktop.
+
+#### Windows and WSL
+
+From native Windows PowerShell, use `npx.cmd` to avoid PowerShell execution-policy conflicts with `npx.ps1`:
+
+```powershell
+npx.cmd --yes github:MendesCorporation/ai-promo-video install
+```
+
+Run the installer in the same environment as the agent client. Native Windows clients use `%USERPROFILE%` and `%LOCALAPPDATA%`; an installer launched inside WSL uses the Linux home directory and configures clients running inside WSL. A WSL installation does not configure native Windows Codex, Claude, or Cursor, and a native installation does not configure their WSL instances.
 
 ### Install from the repository
 
@@ -115,18 +134,36 @@ cp -R plugins/ai-promo-video/skills/create-ai-promo-video "$HOME/.cursor/skills/
 
 For a repository-scoped installation, copy the same folder into `.agents/skills/` for Codex, `.claude/skills/` for Claude Code, or `.cursor/skills/` for Cursor at the repository root.
 
+On native Windows PowerShell, the following copies the Skill to all three user-level discovery locations:
+
+```powershell
+$source = (Resolve-Path "plugins\ai-promo-video\skills\create-ai-promo-video").Path
+$destinations = @(
+  (Join-Path $HOME ".agents\skills\create-ai-promo-video"),
+  (Join-Path $HOME ".claude\skills\create-ai-promo-video"),
+  (Join-Path $HOME ".cursor\skills\create-ai-promo-video")
+)
+foreach ($destination in $destinations) {
+  New-Item -ItemType Directory -Force (Split-Path $destination) | Out-Null
+  Remove-Item $destination -Recurse -Force -ErrorAction SilentlyContinue
+  Copy-Item $source $destination -Recurse -Force
+}
+```
+
 These locations follow the current [Codex Skills](https://learn.chatgpt.com/docs/build-skills), [Claude Code Skills](https://code.claude.com/docs/en/skills), and [Cursor Agent Skills](https://cursor.com/docs/skills) documentation.
 
 The Skill alone provides the directing workflow, production rules, and QA process. It does **not** provide the capture, search, render, editing, or visual-review tools. For complete video production, use the quick installer so the MCP server is installed as well.
 
-After copying the Skill, restart the client if it does not appear automatically. Invoke it explicitly as `$create-ai-promo-video` in Codex, `/create-ai-promo-video` in Claude Code, or through Cursor's slash-command menu.
+After copying the Skill, restart the client if it does not appear automatically. Invoke it explicitly as `$create-ai-promo-video` in Codex, `/create-ai-promo-video` in Claude Code or the Claude app's Code tab, or through Cursor's slash-command menu. Claude Desktop Home requires the MCP installation because it does not scan this folder.
 
 ### What the installer configures
 
-- Runtime under `~/.local/share/ai-promo-video` on macOS/Linux or the local application data directory on Windows.
+- Runtime under `~/.local/share/ai-promo-video` on macOS/Linux or `%LOCALAPPDATA%\ai-promo-video` on Windows.
 - The `create-ai-promo-video` Skill under `~/.agents/skills`, `~/.claude/skills`, and `~/.cursor/skills`.
-- The `ai-promo-video` stdio MCP server in Codex, Claude Code, and Cursor.
+- The `ai-promo-video` stdio MCP server in Codex, Claude Code, Claude Desktop, and Cursor.
 - Production dependencies and Playwright Chromium.
+
+On Windows, the user MCP files resolve under `%USERPROFILE%\.codex\config.toml`, `%USERPROFILE%\.claude.json`, and `%USERPROFILE%\.cursor\mcp.json`. Claude Desktop uses `%APPDATA%\Claude\claude_desktop_config.json`; Microsoft Store builds are detected under the matching `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude` directory.
 
 FFmpeg and FFprobe are supplied by npm dependencies and do not require a separate system installation.
 

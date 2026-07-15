@@ -37,10 +37,10 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.2.2',
+  version: '0.2.3',
 }, {
   capabilities: { logging: {} },
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. Read ai-promo://director-guide or invoke the create-ai-promo-video prompt for the complete workflow.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
 });
 
 function response(value: unknown) {
@@ -95,6 +95,12 @@ server.registerPrompt('create-ai-promo-video', {
     },
   }],
 }));
+
+server.registerTool('load_director_guide', {
+  title: 'Load AI Promo Video Director Guide',
+  description: 'Load the complete create-ai-promo-video Skill workflow before planning a production. Use this first when the host client exposes MCP tools but does not discover filesystem Skills, prompts, or resources, such as Claude Desktop Home.',
+  inputSchema: {},
+}, async () => ({ content: [{ type: 'text' as const, text: directorGuide }] }));
 
 server.registerTool('inspect_saas', {
   title: 'Inspect SaaS',

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-import { access, cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
+import { access, cp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-type ClientName = 'codex' | 'claude-code' | 'cursor';
+export type ClientName = 'codex' | 'claude-code' | 'claude-desktop' | 'cursor';
 
 export interface InstallOptions {
   clients: ClientName[];
@@ -27,8 +27,9 @@ Usage:
   npx github:MendesCorporation/ai-promo-video install [options]
 
 Options:
-  --clients codex,claude-code,cursor  Clients to configure (default: all)
-                                      "claude" remains a compatibility alias for "claude-code"
+  --clients codex,claude-code,claude-desktop,cursor
+                                     Clients to configure (default: all)
+                                     "claude" configures both Claude clients
   --runtime-dir PATH            Stable runtime destination
   --skip-browser               Do not install Playwright Chromium
   --dry-run                    Print actions without changing the machine
@@ -44,7 +45,7 @@ function optionValue(args: string[], index: number, name: string): string {
 
 export function parseInstallArgs(args: string[]): InstallOptions {
   const options: InstallOptions = {
-    clients: ['codex', 'claude-code', 'cursor'],
+    clients: ['codex', 'claude-code', 'claude-desktop', 'cursor'],
     dryRun: false,
     skipBrowser: false,
     help: false,
@@ -60,11 +61,11 @@ export function parseInstallArgs(args: string[]): InstallOptions {
     else if (arg === '--clients') {
       const requested = optionValue(args, index++, arg)
         .split(',')
-        .map((value) => value.trim() === 'claude' ? 'claude-code' : value.trim())
+        .flatMap((value) => value.trim() === 'claude' ? ['claude-code', 'claude-desktop'] : [value.trim()])
         .filter(Boolean);
-      const allowed = new Set<ClientName>(['codex', 'claude-code', 'cursor']);
+      const allowed = new Set<ClientName>(['codex', 'claude-code', 'claude-desktop', 'cursor']);
       if (requested.length === 0 || requested.some((value) => !allowed.has(value as ClientName))) {
-        throw new Error('--clients accepts codex, claude-code (or the claude alias), and/or cursor');
+        throw new Error('--clients accepts codex, claude-code, claude-desktop, cursor, and/or the claude alias');
       }
       options.clients = [...new Set(requested as ClientName[])];
     } else throw new Error(`Unknown installer option: ${arg}`);
@@ -72,24 +73,125 @@ export function parseInstallArgs(args: string[]): InstallOptions {
   return options;
 }
 
-function defaultRuntimeDir(home: string): string {
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) return join(process.env.LOCALAPPDATA, 'ai-promo-video');
-  return join(home, '.local', 'share', 'ai-promo-video');
+function pathApi(platform: NodeJS.Platform): typeof posix | typeof win32 {
+  return platform === 'win32' ? win32 : posix;
+}
+
+export function defaultRuntimeDir(
+  home: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const paths = pathApi(platform);
+  if (platform === 'win32') {
+    return paths.join(env.LOCALAPPDATA || paths.join(home, 'AppData', 'Local'), 'ai-promo-video');
+  }
+  return paths.join(home, '.local', 'share', 'ai-promo-video');
+}
+
+export function clientSkillDestination(
+  home: string,
+  client: Exclude<ClientName, 'claude-desktop'>,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const paths = pathApi(platform);
+  const skillRoot = client === 'codex' ? '.agents' : client === 'claude-code' ? '.claude' : '.cursor';
+  return paths.join(home, skillRoot, 'skills', skillName);
+}
+
+export function clientMcpConfigPath(
+  home: string,
+  client: Exclude<ClientName, 'claude-desktop'>,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const paths = pathApi(platform);
+  if (client === 'codex') return paths.join(home, '.codex', 'config.toml');
+  if (client === 'claude-code') return paths.join(home, '.claude.json');
+  return paths.join(home, '.cursor', 'mcp.json');
+}
+
+export function defaultClaudeDesktopConfigPath(
+  home: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const paths = pathApi(platform);
+  if (platform === 'darwin') return paths.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  if (platform === 'win32') {
+    const appData = env.APPDATA || paths.join(home, 'AppData', 'Roaming');
+    return paths.join(appData, 'Claude', 'claude_desktop_config.json');
+  }
+  return paths.join(home, '.config', 'Claude', 'claude_desktop_config.json');
+}
+
+export function windowsClaudeDesktopStoreConfigPath(localAppData: string, packageName: string): string {
+  return win32.join(
+    localAppData,
+    'Packages',
+    packageName,
+    'LocalCache',
+    'Roaming',
+    'Claude',
+    'claude_desktop_config.json',
+  );
 }
 
 function shellCommand(command: string, args: string[]): string {
   return [command, ...args].map((value) => /[\s"']/.test(value) ? JSON.stringify(value) : value).join(' ');
 }
 
+export function parseWindowsWhereOutput(output: string): string[] {
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  for (const line of output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(line);
+  }
+  return candidates;
+}
+
+function resolveCommand(command: string): string {
+  if (process.platform !== 'win32') return command;
+  if (existsSync(command)) return command;
+  const lookup = spawnSync('where.exe', [command], { encoding: 'utf8', windowsHide: true });
+  if (lookup.status !== 0) return command;
+  return parseWindowsWhereOutput(String(lookup.stdout || ''))[0] || command;
+}
+
+function quoteWindowsShellExecutable(command: string): string {
+  return `"${command.trim().replace(/^["']+|["']+$/g, '').replace(/"/g, '""')}"`;
+}
+
+export function windowsCommandNeedsShell(command: string): boolean {
+  return ['.cmd', '.bat'].includes(extname(command).toLowerCase());
+}
+
+function spawnPortable(
+  command: string,
+  args: string[],
+  options: { cwd?: string; stdio: 'ignore' | 'inherit' },
+) {
+  const resolvedCommand = resolveCommand(command);
+  const windowsScript = process.platform === 'win32' && windowsCommandNeedsShell(resolvedCommand);
+  return spawnSync(windowsScript ? quoteWindowsShellExecutable(resolvedCommand) : resolvedCommand, args, {
+    cwd: options.cwd,
+    stdio: options.stdio,
+    shell: windowsScript,
+    windowsHide: process.platform === 'win32',
+  });
+}
+
 function commandExists(command: string): boolean {
-  const result = spawnSync(command, ['--version'], { stdio: 'ignore' });
-  return !result.error;
+  const result = spawnPortable(command, ['--version'], { stdio: 'ignore' });
+  return !result.error && result.status === 0;
 }
 
 function run(command: string, args: string[], options: { cwd?: string; dryRun?: boolean; allowFailure?: boolean } = {}): void {
   console.log(`$ ${shellCommand(command, args)}`);
   if (options.dryRun) return;
-  const result = spawnSync(command, args, { cwd: options.cwd, stdio: 'inherit' });
+  const result = spawnPortable(command, args, { cwd: options.cwd, stdio: 'inherit' });
   if (result.error && !options.allowFailure) throw result.error;
   if (result.status !== 0 && !options.allowFailure) throw new Error(`Command failed with exit code ${result.status}: ${command}`);
 }
@@ -122,8 +224,13 @@ async function copyRuntime(sourceRoot: string, runtimeDir: string, options: Inst
   if (!await exists(join(staging, 'dist', 'mcp', 'server.js'))) {
     throw new Error('Built MCP server not found. Run npm run build before installing from a source checkout.');
   }
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  run(npm, ['install', '--omit=dev'], { cwd: staging });
+  const npmExecPath = process.env.npm_execpath;
+  const npmInvocation = npmExecPath
+    && /^npm-cli\.(?:c?js)$/i.test(basename(npmExecPath))
+    && existsSync(npmExecPath)
+    ? { command: process.execPath, args: [npmExecPath] }
+    : { command: process.platform === 'win32' ? 'npm.cmd' : 'npm', args: [] };
+  run(npmInvocation.command, [...npmInvocation.args, 'install', '--omit=dev'], { cwd: staging });
   if (!options.skipBrowser) {
     const playwrightCli = join(staging, 'node_modules', 'playwright', 'cli.js');
     if (!await exists(playwrightCli)) throw new Error('Playwright is not installed in the runtime; remove --skip-dependencies or prepare the runtime first');
@@ -185,33 +292,62 @@ async function configureCodexFallback(configPath: string, nodePath: string, serv
   await writeFile(configPath, `${source.trimEnd()}${source.trim() ? '\n\n' : ''}${block}\n`, 'utf8');
 }
 
+async function claudeDesktopConfigPath(home: string): Promise<string> {
+  const fallback = defaultClaudeDesktopConfigPath(home);
+  if (process.platform !== 'win32') return fallback;
+
+  const localAppData = process.env.LOCALAPPDATA || win32.join(home, 'AppData', 'Local');
+  const packageRoot = win32.join(localAppData, 'Packages');
+  let packageNames: string[] = [];
+  try {
+    packageNames = (await readdir(packageRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && /^Claude_/i.test(entry.name))
+      .map((entry) => entry.name)
+      .sort((left, right) => right.localeCompare(left, undefined, { numeric: true, sensitivity: 'base' }));
+  } catch {
+    return fallback;
+  }
+  const candidates = packageNames.map((name) => windowsClaudeDesktopStoreConfigPath(localAppData, name));
+  return candidates.find((candidate) => existsSync(candidate)) || candidates[0] || fallback;
+}
+
 async function configureClients(runtimeDir: string, home: string, options: InstallOptions): Promise<void> {
   const serverPath = join(runtimeDir, 'dist', 'mcp', 'server.js');
   const skillSource = join(runtimeDir, 'skills', skillName);
+  const installedSkillDestinations = new Set<string>();
   for (const client of options.clients) {
-    const skillRoot = client === 'codex' ? '.agents' : client === 'claude-code' ? '.claude' : '.cursor';
-    const skillDestination = join(home, skillRoot, 'skills', skillName);
-    await materializeSkill(skillSource, skillDestination, options.dryRun);
+    const skillClient = client === 'claude-desktop' ? 'claude-code' : client;
+    const skillDestination = clientSkillDestination(home, skillClient);
+    if (!installedSkillDestinations.has(skillDestination)) {
+      await materializeSkill(skillSource, skillDestination, options.dryRun);
+      installedSkillDestinations.add(skillDestination);
+    }
     if (client === 'codex') {
       if (!options.homeDir && commandExists('codex')) {
         run('codex', ['mcp', 'remove', serverName], { dryRun: options.dryRun, allowFailure: true });
         run('codex', ['mcp', 'add', serverName, '--', process.execPath, serverPath], { dryRun: options.dryRun });
       } else {
-        await configureCodexFallback(join(home, '.codex', 'config.toml'), process.execPath, serverPath, options.dryRun);
+        await configureCodexFallback(clientMcpConfigPath(home, client), process.execPath, serverPath, options.dryRun);
       }
     } else if (client === 'claude-code') {
       if (!options.homeDir && commandExists('claude')) {
         run('claude', ['mcp', 'remove', '--scope', 'user', serverName], { dryRun: options.dryRun, allowFailure: true });
         run('claude', ['mcp', 'add', '--transport', 'stdio', '--scope', 'user', serverName, '--', process.execPath, serverPath], { dryRun: options.dryRun });
       } else {
-        await mergeJsonMcp(join(home, '.claude.json'), {
+        await mergeJsonMcp(clientMcpConfigPath(home, client), {
           type: 'stdio', command: process.execPath, args: [serverPath], env: {},
         }, options.dryRun);
       }
       console.log(`Claude Code Skill command: /${skillName}`);
-      console.log('Claude app Chat and claude.ai use separate cloud Skills and do not read ~/.claude/skills. Open a new Claude Code session to use this installation.');
+      console.log('Open a new Claude Code session to load the installed user Skill.');
+    } else if (client === 'claude-desktop') {
+      const configPath = await claudeDesktopConfigPath(home);
+      await mergeJsonMcp(configPath, {
+        command: process.execPath, args: [serverPath], env: {},
+      }, options.dryRun);
+      console.log('Claude Desktop uses the MCP server instructions, director prompt/resource, and load_director_guide tool; its Home chat does not read ~/.claude/skills. Fully quit and reopen Claude Desktop after installation.');
     } else {
-      await mergeJsonMcp(join(home, '.cursor', 'mcp.json'), {
+      await mergeJsonMcp(clientMcpConfigPath(home, client), {
         command: process.execPath, args: [serverPath], env: {},
       }, options.dryRun);
     }
