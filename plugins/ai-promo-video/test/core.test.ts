@@ -195,6 +195,8 @@ describe('advanced project source', () => {
     const formatSource = await readFile(join(directory, 'format.tsx'), 'utf8');
     const proceduralSource = await readFile(join(directory, 'procedural.tsx'), 'utf8');
     const ambientSource = await readFile(join(directory, 'ambient.ts'), 'utf8');
+    const transitionSource = await readFile(join(directory, 'transitions.ts'), 'utf8');
+    const cameraSource = await readFile(join(directory, 'camera.ts'), 'utf8');
     const vectorSource = await readFile(join(directory, 'vector-motion.ts'), 'utf8');
     const threeEffectsSource = await readFile(join(directory, 'three-effects.ts'), 'utf8');
     const opticalGlassSource = await readFile(join(directory, 'optical-glass.tsx'), 'utf8');
@@ -226,6 +228,15 @@ describe('advanced project source', () => {
     expect(ambientSource).toContain('export function ambientCamera');
     expect(ambientSource).toContain('export function* ambientParallax');
     expect(ambientSource).toContain('export function runWithAmbientMotion');
+    for (const name of ['directionalPush', 'zoomThrough', 'shapeWipe', 'objectCarry', 'directionalBlurCut', 'matchScale', 'organicMorphWipe', 'sharedElementBridge', 'whipPanBridge', 'displacementReveal']) {
+      expect(transitionSource).toContain(`export function* ${name}`);
+    }
+    for (const name of ['dollyIn', 'orbitSweep', 'focusTrack', 'perspectiveTilt', 'cameraPath']) {
+      expect(cameraSource).toContain(`export function* ${name}`);
+    }
+    for (const name of ['ambientCameraRig', 'ambientParallaxRig', 'parallaxPan']) {
+      expect(cameraSource).toContain(`export function ${name}`);
+    }
     expect(vectorSource).toContain('export function* morphVectorPath');
     expect(threeEffectsSource).toContain('export function createPostProcessing');
     expect(opticalGlassSource).toContain('export function OpticalGlass');
@@ -240,7 +251,7 @@ describe('advanced project source', () => {
     expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene.tsx', 'three-effects.ts', 'vector-motion.ts']));
+    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
     await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
   });
@@ -259,6 +270,12 @@ describe('advanced project source', () => {
     expect(searchMotionComponents({ query: 'background continuously drifting while the scene plays' }).map((item) => item.id)).toContain('continuous-ambient-field');
     expect(searchMotionComponents({ query: 'optical liquid glass refraction' }).map((item) => item.id)).toContain('optical-liquid-glass');
     expect(searchMotionComponents({ query: 'liquid glass text refraction' }).map((item) => item.id)).toContain('liquid-glass-text');
+    const transitionEntries = motionComponentLibrary.filter((item) => item.category === 'transition');
+    const cameraEntries = motionComponentLibrary.filter((item) => item.category === 'camera');
+    expect(transitionEntries).toHaveLength(10);
+    expect(cameraEntries).toHaveLength(7);
+    expect(transitionEntries.every((item) => item.sourceExports.every((name) => name !== 'cameraMove'))).toBe(true);
+    expect(cameraEntries.every((item) => item.sourceExports.every((name) => name !== 'cameraMove'))).toBe(true);
   });
 });
 
@@ -305,12 +322,16 @@ describe('progressive contextual help', () => {
   });
 
   it('attaches exact shipped type declarations, signatures, and runtime defaults on detail calls', async () => {
-    const contracts = await sourceApiContracts(['LiquidGlassText', 'cameraMove', 'customEscapeHatch']);
+    const contracts = await sourceApiContracts(['LiquidGlassText', 'cameraMove', 'whipPanBridge', 'orbitSweep', 'customEscapeHatch']);
     expect(contracts[0]).toMatchObject({ exportName: 'LiquidGlassText', sourceFile: 'liquid-glass-text.tsx' });
     expect(contracts[0].typeDeclaration).toContain('LiquidGlassTextProps');
     expect(contracts[0].callSignature).toContain('refraction = 0.038');
     expect(contracts[1].typeDeclaration).toContain('CameraMoveOptions');
-    expect(contracts[2].note).toContain('composition recipe');
+    expect(contracts[2]).toMatchObject({sourceFile: 'transitions.ts'});
+    expect(contracts[2].typeDeclaration).toContain('WhipPanBridgeOptions');
+    expect(contracts[3]).toMatchObject({sourceFile: 'camera.ts'});
+    expect(contracts[3].typeDeclaration).toContain('OrbitSweepOptions');
+    expect(contracts[4].note).toContain('composition recipe');
 
     const detailed = await attachSourceContracts(getContextualHelp({ target: 'component:liquid-glass-text' })) as {
       help: { sourceContracts: Array<{ sourceFile: string }> };

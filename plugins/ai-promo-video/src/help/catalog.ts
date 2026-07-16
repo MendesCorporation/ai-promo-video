@@ -432,9 +432,22 @@ const topicHelpEntries: HelpEntry[] = [
   },
   {
     kind: 'topic', id: 'transitions', title: 'Transition Direction and Continuity',
-    summary: 'Transitions connect two designed poses through shared motion, scale, color, lighting, rhythm, or an object.',
-    workflow: ['Design both settled poses first.', 'Choose one continuity mechanism.', 'Keep transition duration proportional to energy.', 'Inspect a dense strip around the boundary.'],
+    summary: 'Ten executable rigs in transitions.ts connect two designed poses through shared motion, scale, color, lighting, rhythm, shape, blur, displacement, or an object.',
+    workflow: ['Design both settled poses first.', 'Load exact help for the selected transition.', 'Author its shapes, clones, bounds, strips, vectors, and supporting layers.', 'Customize or rewrite the rig when the story needs different internal choreography.', 'Keep duration proportional to energy.', 'Inspect a dense strip around the boundary.'],
     validation: ['No stale layer, flash, jump, mismatched direction, accidental freeze, or hierarchy collapse.'],
+  },
+  {
+    kind: 'topic', id: 'camera-rigs', title: 'Camera Rigs and Custom Paths',
+    summary: 'Seven catalog camera systems have executable helpers in camera.ts, plus cameraPath for unrestricted authored keyframes and Three.js as the true-3D escape hatch.',
+    workflow: ['Choose the focal subject and overscan first.', 'Load exact component help.', 'Create separate world, pose, and ambient rigs when signals would conflict.', 'Customize or replace the helper when its path is not the story path.', 'Use Three.js for physical perspective, orbit, lighting, or depth of field.'],
+    validation: ['The camera arrives before the semantic event.', 'The focal subject remains legible and inside safe bounds.', 'No exposed frame edges, frozen holds, signal conflicts, or digital-zoom-only feel.'],
+    related: ['topic:custom-motion', 'component:dolly-in', 'component:focus-track', 'component:orbit-sweep'],
+  },
+  {
+    kind: 'topic', id: 'custom-motion', title: 'Unrestricted Custom Motion',
+    summary: 'The component catalog is optional source material, never a constraint: author any compatible Revideo TypeScript, GLSL, SVG, procedural, or Three.js behavior in the production.',
+    workflow: ['Use a rig unchanged only when it already matches the shot.', 'Otherwise restyle, combine, copy and rewrite, or ignore it.', 'Create new helpers directly in the scaffold whenever one-off behavior is stronger.', 'Validate custom work with the same render and visual-review gate.'],
+    pitfalls: ['Do not choose a near-matching component merely because it appears in search.', 'Do not assume sourceExports are mandatory.', 'Do not let examples become a repeated house style.'],
   },
   {
     kind: 'topic', id: 'visual-review', title: 'Visual Review Gate',
@@ -575,4 +588,3 @@ function searchHelp(query: string, limit: number) {
     .slice(0, limit)
     .map(({entry}) => compact(entry));
 }
-

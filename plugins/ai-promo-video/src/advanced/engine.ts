@@ -18,16 +18,16 @@ export interface AdvancedProjectResult {
 
 export const motionCapabilities = {
   engine: 'Revideo 0.11 (MIT)',
-  selectionRule: 'Capabilities and recipes are possibilities. Start with the current story and art direction; no technique, palette, layout, camera move, or media type is required.',
+  selectionRule: 'Capabilities and rigs are optional starting points. Start with the current story and art direction; freely customize, combine, replace, or ignore every library helper and author any compatible TypeScript, shader, SVG, or Three.js behavior the shot needs.',
   primitives: ['Rect', 'Circle', 'Polygon', 'Line', 'Spline', 'Path', 'SVG', 'Img', 'Video', 'Audio', 'Txt', 'Layout', 'Grid', 'Rive'],
   formats: ['landscape 16:9', 'portrait 9:16', 'square 1:1', 'platform-aware safe areas', 'adaptive layout helpers', 'focal cover crops'],
   captions: ['SRT and WebVTT import', 'exact word timing JSON', 'deterministic cue interpolation', 'word-follow captions', 'karaoke captions', 'semantic punch captions', 'speaker labels', 'caption timing QA'],
-  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'scene transitions', 'path drawing', 'continuous ambient timelines', 'ambient camera drift', 'ambient parallax', 'ambient orbit and light pulse', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'specular text sweeps', 'liquid-glass glyph refraction', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography', 'vector glyph outlines', 'SVG shape morphing', 'text on paths', 'particle attraction and dissolution'],
+  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'ten executable transition rigs', 'seven executable camera rigs', 'open custom camera paths', 'path drawing', 'continuous ambient timelines', 'ambient camera drift', 'ambient parallax', 'ambient orbit and light pulse', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'specular text sweeps', 'liquid-glass glyph refraction', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography', 'vector glyph outlines', 'SVG shape morphing', 'text on paths', 'particle attraction and dissolution'],
   effects: ['blur', 'brightness', 'contrast', 'hue', 'saturation', 'shadows', 'blend modes', 'masks', 'optical liquid-glass refraction', 'GLSL destination-texture shaders', 'simplex-noise flow fields', 'selective bloom', 'depth of field', 'chromatic aberration', 'grain', 'vignette'],
   threeD: ['Three.js scenes', 'perspective cameras', 'textured product screens', 'lights', 'particles', 'depth and parallax'],
   exampleRecipes: ['footage-led emotional edit', 'continuous ambient shot', 'continuous visual transformation', 'kinetic manifesto', 'perspective product reveal', 'focused cursor interaction', 'interface assembly', 'editorial split proof', 'data visualization', 'typography-driven transition', 'abstract procedural environment', 'true 3D product stage', 'mandatory visual review pack'],
   componentLibrary: motionLibrarySummary,
-  extensibility: 'Every new production is one Revideo composition. The AI can combine library primitives and write custom TypeScript, shaders, geometry, and timing inside the same scene.',
+  extensibility: 'Every new production is one unrestricted Revideo composition. Library rigs are never mandatory: the AI can customize or ignore them and write any compatible TypeScript, shaders, geometry, Three.js scenes, and timing inside the same production.',
 };
 
 const advancedSourceExtensions = new Set(['.ts', '.tsx', '.css', '.json', '.svg', '.glsl']);

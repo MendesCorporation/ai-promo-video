@@ -6,9 +6,11 @@ import {waitFor} from '@revideo/core';
  * Blank composition entry point.
  *
  * Start from the story and art direction. Search motion-library.json, import
- * only useful primitives from motion-library.tsx or kinetic.ts, and freely
- * author custom Revideo nodes in this same file. Do not render this placeholder
- * as a finished video.
+ * only useful primitives from motion-library.tsx, kinetic.ts, transitions.ts,
+ * camera.ts, or the other scaffold sources. Every helper is optional: freely
+ * customize, combine, replace, or ignore it and author any compatible Revideo,
+ * GLSL, SVG, or Three.js behavior in this same production. Do not render this
+ * placeholder as a finished video.
  */
 export default makeScene2D('composition', function* (view) {
   view.fill('#000000');

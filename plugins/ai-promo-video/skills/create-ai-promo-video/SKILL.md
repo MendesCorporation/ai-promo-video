@@ -9,7 +9,7 @@ Treat the work as motion direction and compositing, not as a screen recording or
 
 ## Composition Model
 
-Every new production is authored directly as one Revideo TypeScript composition. Scaffold once, search the reusable motion vocabulary, combine only components that serve the specific story, and write custom nodes, timing, geometry, shaders, or Three.js in the same scene whenever the library is insufficient. Read [component-library.md](references/component-library.md) and [advanced-motion.md](references/advanced-motion.md).
+Every new production is authored directly as one unrestricted Revideo TypeScript composition. Scaffold once, search the reusable motion vocabulary, and use only components that serve the specific story. Every library rig is optional: customize, combine, replace, or ignore it, and write any compatible nodes, timing, geometry, transitions, camera systems, shaders, SVG, or Three.js behavior the scene needs. Read [component-library.md](references/component-library.md) and [advanced-motion.md](references/advanced-motion.md).
 
 Library-first does not mean template-first: never render a generic draft and replace its contents later. The neutral scaffold contains no visual design. Decide the art direction before choosing components, and do not inherit sample palettes, copy, card counts, layouts, music, or scene arcs from prior videos.
 
@@ -40,6 +40,7 @@ The version 1 JSON renderer is legacy compatibility only. Use it when the user s
 - Decide what remains continuously alive in every non-static shot. Run restrained ambient background, parallax, light, or camera motion in parallel with story beats instead of restarting movement after each event. When story motion and ambient motion affect the same visual object, put them on nested pose and ambient rigs so concurrent threads never write the same position, scale, or rotation signal. Intentional stillness remains valid when the story calls for it.
 - Prefer continuous visual motion across cuts: shared direction, color, scale, rhythm, or object continuity.
 - Treat the component catalog as possibilities, not recommendations. Select by narrative need, customize the result, and avoid repeating the same component combination across unrelated productions.
+- Never treat a catalog result as a constraint or required implementation. A production may rewrite a rig, use only part of it, or create an entirely new transition, camera path, component, shader, or scene system directly in TypeScript.
 - Recompose hierarchy for every aspect ratio. Never create a portrait deliverable by shrinking a finished landscape scene; crop product proof around meaningful focal regions and keep captions inside an editable platform-safe lane.
 - Animate captions from timing data, not equal word intervals. Keep a readable settled phrase, use semantic emphasis sparingly, and preserve an SRT/VTT or timing-JSON sidecar when supplied.
 - Do not default to centered headline, floating cards, purple/cyan gradients, orbit rings, a fixed six-scene arc, or any bundled music track. These remain valid only when independently justified by the current art direction.

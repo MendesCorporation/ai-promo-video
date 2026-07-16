@@ -10,6 +10,8 @@ const templateFiles = [
   'captions.tsx',
   'format.tsx',
   'ambient.ts',
+  'transitions.ts',
+  'camera.ts',
   'procedural.tsx',
   'vector-motion.ts',
   'three-effects.ts',
@@ -147,4 +149,3 @@ export async function attachSourceContracts<T extends {mode?: string; help?: Hel
     },
   };
 }
-
