@@ -159,7 +159,6 @@ export async function renderAdvancedProject(options: {
       detached: process.platform !== 'win32',
       env: { ...process.env, DISABLE_TELEMETRY: 'true' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-      windowsHide: true,
     });
     const childPid = child.pid;
     let settled = false;
