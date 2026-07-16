@@ -104,6 +104,7 @@ async function render(options: AdvancedRenderParentMessage['options']): Promise<
       workers: options.workers,
       logProgress: false,
       progressCallback: report,
+      puppeteer: { headless: true },
       ...(Object.keys(projectSettings).length ? { projectSettings } : {}),
       ...(ffmpegPath ? { ffmpeg: { ffmpegPath, ffprobePath: ffprobeStatic.path, ffmpegLogLevel: 'error' as const } } : {}),
       viteConfig: { publicDir, resolve: { alias: aliases } },

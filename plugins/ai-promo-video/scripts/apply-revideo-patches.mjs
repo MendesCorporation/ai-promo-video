@@ -9,6 +9,14 @@ const require = createRequire(import.meta.url);
 const EXPECTED_REVIDEO_VERSION = '0.11.0';
 const PATCH_NAME = 'revideo-0.11-shader-scene-context';
 const DIAGNOSTIC_PATCH_NAME = 'revideo-0.11-browser-error-stack';
+const WINDOWS_HEADLESS_PATCH_NAME = 'revideo-0.11-windows-headless-render';
+const RENDER_CLEANUP_PATCH_NAME = 'revideo-0.11-renderer-startup-cleanup';
+const PATCH_NAMES = [
+  PATCH_NAME,
+  DIAGNOSTIC_PATCH_NAME,
+  WINDOWS_HEADLESS_PATCH_NAME,
+  RENDER_CLEANUP_PATCH_NAME,
+];
 const checkOnly = process.argv.includes('--check');
 const workspaceDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -73,11 +81,13 @@ async function main() {
   );
   const loggerPath = join(revideoCore.directory, 'lib', 'app', 'Logger.js');
   const renderClientPath = join(revideoRenderer.directory, 'lib', 'client', 'render.js');
+  const renderServerPath = join(revideoRenderer.directory, 'lib', 'server', 'render-video.js');
 
   let nodeSource = await readFile(nodePath, 'utf8');
   let shaderConfigSource = await readFile(shaderConfigPath, 'utf8');
   let loggerSource = await readFile(loggerPath, 'utf8');
   let renderClientSource = await readFile(renderClientPath, 'utf8');
+  let renderServerSource = await readFile(renderServerPath, 'utf8');
   let changed = false;
 
   const constructorPatch = applyExactReplacement(
@@ -146,6 +156,57 @@ async function main() {
   renderClientSource = renderStackPatch.source;
   changed ||= renderStackPatch.changed;
 
+  const windowsHeadlessPatch = applyExactReplacement(
+    renderServerSource,
+    `    if (!args.includes('--single-process')) {\n        args.push('--single-process');\n    }`,
+    `    // ${WINDOWS_HEADLESS_PATCH_NAME}: Chromium on Windows can detach the\n` +
+      `    // Revideo render frame and flash a blank window when single-process is forced.\n` +
+      `    if (process.platform !== 'win32' && !args.includes('--single-process')) {\n` +
+      `        args.push('--single-process');\n` +
+      `    }`,
+    'renderer server single-process launch',
+  );
+  renderServerSource = windowsHeadlessPatch.source;
+  changed ||= windowsHeadlessPatch.changed;
+
+  const browserErrorCleanupPatch = applyExactReplacement(
+    renderServerSource,
+    `        page.exposeFunction('browserError', (message) => {\n            reject(new Error(message));\n        });`,
+    `        page.exposeFunction('browserError', async (message) => {\n` +
+      `            // ${RENDER_CLEANUP_PATCH_NAME}: close Chromium and Vite on early browser errors.\n` +
+      `            await Promise.all([\n` +
+      `                browser.close().catch(() => { }),\n` +
+      `                server.close().catch(() => { }),\n` +
+      `            ]);\n` +
+      `            clearInterval(interval);\n` +
+      `            reject(new Error(message));\n` +
+      `        });`,
+    'renderer browserError cleanup',
+  );
+  renderServerSource = browserErrorCleanupPatch.source;
+  changed ||= browserErrorCleanupPatch.changed;
+
+  const gotoCleanupPatch = applyExactReplacement(
+    renderServerSource,
+    `    await page.goto(url);\n    return renderingComplete;`,
+    `    try {\n` +
+      `        await page.goto(url);\n` +
+      `        return await renderingComplete;\n` +
+      `    }\n` +
+      `    catch (error) {\n` +
+      `        // ${RENDER_CLEANUP_PATCH_NAME}: page.goto can fail before Revideo wires cleanup callbacks.\n` +
+      `        await Promise.all([\n` +
+      `            browser.close().catch(() => { }),\n` +
+      `            server.close().catch(() => { }),\n` +
+      `        ]);\n` +
+      `        clearInterval(interval);\n` +
+      `        throw error;\n` +
+      `    }`,
+    'renderer page.goto cleanup',
+  );
+  renderServerSource = gotoCleanupPatch.source;
+  changed ||= gotoCleanupPatch.changed;
+
   if (checkOnly) {
     if (changed) {
       throw new Error(
@@ -154,14 +215,14 @@ async function main() {
       );
     }
     process.stdout.write(
-      `[ai-promo-video] ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} are applied to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
+      `[ai-promo-video] ${PATCH_NAMES.join(', ')} are applied to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
     );
     return;
   }
 
   if (!changed) {
     process.stdout.write(
-      `[ai-promo-video] ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} are already applied.\n`,
+      `[ai-promo-video] ${PATCH_NAMES.join(', ')} are already applied.\n`,
     );
     return;
   }
@@ -171,6 +232,7 @@ async function main() {
     writeFile(shaderConfigPath, shaderConfigSource, 'utf8'),
     writeFile(loggerPath, loggerSource, 'utf8'),
     writeFile(renderClientPath, renderClientSource, 'utf8'),
+    writeFile(renderServerPath, renderServerSource, 'utf8'),
   ]);
 
   // Vite may have optimized the unpatched runtime during a previous install.
@@ -185,7 +247,7 @@ async function main() {
   );
 
   process.stdout.write(
-    `[ai-promo-video] Applied ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
+    `[ai-promo-video] Applied ${PATCH_NAMES.join(', ')} to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
   );
 }
 

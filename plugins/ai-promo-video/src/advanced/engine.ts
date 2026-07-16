@@ -159,6 +159,7 @@ export async function renderAdvancedProject(options: {
       detached: process.platform !== 'win32',
       env: { ...process.env, DISABLE_TELEMETRY: 'true' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      windowsHide: true,
     });
     const childPid = child.pid;
     let settled = false;
@@ -176,12 +177,26 @@ export async function renderAdvancedProject(options: {
       Promise.resolve(options.onProgress?.(update)).catch(() => undefined);
     };
 
-    const terminateTree = (): void => {
-      if (!childPid) return;
+    const terminateTree = (): Promise<void> => {
+      if (!childPid) return Promise.resolve();
       if (process.platform === 'win32') {
-        const killer = spawn('taskkill', ['/pid', String(childPid), '/T', '/F'], { stdio: 'ignore' });
-        killer.unref();
-        return;
+        return new Promise((resolveKill) => {
+          let resolved = false;
+          const finish = (): void => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(killTimer);
+            resolveKill();
+          };
+          const killer = spawn('taskkill', ['/pid', String(childPid), '/T', '/F'], {
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+          const killTimer = setTimeout(finish, 5_000);
+          killTimer.unref();
+          killer.on('error', finish);
+          killer.on('close', finish);
+        });
       }
       try {
         process.kill(-childPid, 'SIGTERM');
@@ -192,6 +207,15 @@ export async function renderAdvancedProject(options: {
         try { process.kill(-childPid, 'SIGKILL'); } catch { /* process group is gone */ }
       }, 1_500);
       forceTimer.unref();
+      return new Promise((resolveKill) => {
+        const resolveTimer = setTimeout(resolveKill, 1_600);
+        resolveTimer.unref();
+        child.once('exit', () => {
+          clearTimeout(forceTimer);
+          clearTimeout(resolveTimer);
+          resolveKill();
+        });
+      });
     };
 
     const clearTimers = (): void => {
@@ -206,12 +230,12 @@ export async function renderAdvancedProject(options: {
       settled = true;
       clearTimers();
       options.signal?.removeEventListener('abort', onAbort);
-      terminateTree();
       const detail = diagnostics.trim();
       const raw = [error.stack, detail].filter(Boolean).join('\n');
-      rejectPromise(error instanceof AdvancedDiagnosticError
+      const reportedError = error instanceof AdvancedDiagnosticError
         ? error
-        : new AdvancedDiagnosticError(rendererFailureReport(error.message, raw, projectFile)));
+        : new AdvancedDiagnosticError(rendererFailureReport(error.message, raw, projectFile));
+      void terminateTree().finally(() => rejectPromise(reportedError));
     };
 
     const resetStallTimer = (): void => {
