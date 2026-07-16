@@ -25,7 +25,7 @@ export function installUsage(): string {
   return `AI Promo Video universal installer
 
 Usage:
-  npx github:MendesCorporation/ai-promo-video install [options]
+  npx @apptrix/ai-promo-video install [options]
 
 Options:
   --clients codex,claude-code,claude-desktop,cursor

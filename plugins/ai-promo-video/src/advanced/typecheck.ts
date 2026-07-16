@@ -91,11 +91,12 @@ function createVirtualCompilerHost(options: ts.CompilerOptions): ts.CompilerHost
   const getSourceFile = host.getSourceFile.bind(host);
   const fileExists = host.fileExists.bind(host);
   const readFile = host.readFile.bind(host);
+  const isVirtualDeclarationsFile = (fileName: string): boolean => resolve(fileName) === virtualDeclarationsFile;
 
-  host.fileExists = (fileName) => fileName === virtualDeclarationsFile || fileExists(fileName);
-  host.readFile = (fileName) => fileName === virtualDeclarationsFile ? virtualDeclarations : readFile(fileName);
+  host.fileExists = (fileName) => isVirtualDeclarationsFile(fileName) || fileExists(fileName);
+  host.readFile = (fileName) => isVirtualDeclarationsFile(fileName) ? virtualDeclarations : readFile(fileName);
   host.getSourceFile = (fileName, languageVersion, onError, shouldCreateNewSourceFile) => {
-    if (fileName === virtualDeclarationsFile) {
+    if (isVirtualDeclarationsFile(fileName)) {
       return ts.createSourceFile(fileName, virtualDeclarations, languageVersion, true, ts.ScriptKind.TS);
     }
     return getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile);

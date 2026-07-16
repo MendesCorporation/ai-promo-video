@@ -294,6 +294,15 @@ describe('advanced project source', () => {
     await expect(renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')})).rejects.toThrow(/REV011_NESTED_JSX_FRAGMENT_MAP/);
   });
 
+  it('accepts bundler asset modules in the TypeScript preflight on every platform', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-asset-typecheck-'));
+    const projectFile = join(directory, 'project.ts');
+    await writeFile(join(directory, 'effect.glsl'), 'void main() {}\n');
+    await writeFile(projectFile, `import shader from './effect.glsl';\nexport default shader;\n`);
+
+    expect(validateAdvancedProjectTypes(projectFile)).toMatchObject({valid: true, diagnostics: []});
+  });
+
   it('catches invalid names, imports, and exports before renderer startup with code frames', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-promo-typecheck-'));
     const projectFile = join(directory, 'project.tsx');
@@ -517,9 +526,18 @@ describe('adaptive formats and captions', () => {
 });
 
 describe('universal client installation', () => {
-  it('keeps the GitHub npx bootstrap free of runtime-only postinstall hooks', async () => {
-    const rootPackage = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
+  it('keeps the registry npx bootstrap publishable and free of runtime-only postinstall hooks', async () => {
+    const rootPackage = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as {
+      name?: string;
+      private?: boolean;
+      scripts?: Record<string, string>;
+      publishConfig?: { access?: string };
+    };
     const runtimePackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
+    expect(rootPackage.name).toBe('@apptrix/ai-promo-video');
+    expect(rootPackage.private).not.toBe(true);
+    expect(rootPackage.publishConfig?.access).toBe('public');
+    expect(rootPackage.scripts?.prepack).toContain('npm run build');
     expect(rootPackage.scripts).not.toHaveProperty('postinstall');
     expect(runtimePackage.scripts?.postinstall).toBe('node scripts/apply-revideo-patches.mjs');
     expect(runtimeEntries).toContain('scripts');

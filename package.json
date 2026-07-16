@@ -1,8 +1,19 @@
 {
-  "name": "ai-promo-video-monorepo",
+  "name": "@apptrix/ai-promo-video",
   "version": "0.6.3",
-  "private": true,
+  "description": "Headless AI promo video capture, composition, rendering, editing, and review toolkit",
   "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "ai-video",
+    "mcp",
+    "codex",
+    "claude",
+    "cursor",
+    "revideo",
+    "playwright",
+    "ffmpeg"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MendesCorporation/ai-promo-video.git"
@@ -12,7 +23,7 @@
     "url": "https://github.com/MendesCorporation/ai-promo-video/issues"
   },
   "bin": {
-    "ai-promo-video": "./plugins/ai-promo-video/dist/install.js"
+    "ai-promo-video": "plugins/ai-promo-video/dist/install.js"
   },
   "files": [
     "LICENSE",
@@ -29,6 +40,12 @@
   "workspaces": [
     "plugins/*"
   ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "revideo:patch": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs",
     "revideo:patch:check": "node plugins/ai-promo-video/scripts/apply-revideo-patches.mjs --check",
@@ -41,6 +58,7 @@
     "qanode:render": "npm run qanode:render --workspace=@ai-promo-video/core",
     "qanode:advanced": "npm run qanode:advanced --workspace=@ai-promo-video/core",
     "benchmark:render": "npm run benchmark:render --workspace=@ai-promo-video/core",
+    "prepack": "npm run build && npm run audio:generate",
     "prepare": "npm run build"
   }
 }

@@ -36,6 +36,7 @@
     "revideo:patch:check": "node scripts/apply-revideo-patches.mjs --check",
     "test:revideo-shader": "node scripts/test-revideo-shader.mjs",
     "build": "tsc -p tsconfig.json",
+    "pretest": "npm run audio:generate",
     "test": "vitest run",
     "browser:install": "playwright install chromium",
     "audio:generate": "tsx src/audio/generate-library.ts",

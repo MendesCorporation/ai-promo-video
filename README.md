@@ -65,7 +65,7 @@ Requirements: Node.js 20 or newer on macOS, Linux, or Windows.
 Install AI Promo Video for Codex, Claude Code, Claude Desktop, and Cursor with one command:
 
 ```bash
-npx --yes github:MendesCorporation/ai-promo-video install
+npx --yes @apptrix/ai-promo-video install
 ```
 
 The installer downloads a stable local runtime, installs production dependencies and Playwright Chromium, installs the `create-ai-promo-video` Skill, and registers the `ai-promo-video` MCP server in all four clients. Existing unrelated Skills and MCP servers are preserved.
@@ -82,11 +82,11 @@ Restart the agent client after installation, then ask it to create a professiona
 Install for selected clients only or preview every planned change:
 
 ```bash
-npx --yes github:MendesCorporation/ai-promo-video install --clients codex,cursor
-npx --yes github:MendesCorporation/ai-promo-video install --clients claude
-npx --yes github:MendesCorporation/ai-promo-video install --clients claude-code
-npx --yes github:MendesCorporation/ai-promo-video install --clients claude-desktop
-npx --yes github:MendesCorporation/ai-promo-video install --dry-run
+npx --yes @apptrix/ai-promo-video install --clients codex,cursor
+npx --yes @apptrix/ai-promo-video install --clients claude
+npx --yes @apptrix/ai-promo-video install --clients claude-code
+npx --yes @apptrix/ai-promo-video install --clients claude-desktop
+npx --yes @apptrix/ai-promo-video install --dry-run
 ```
 
 The `claude` alias configures both Claude Code and Claude Desktop.
@@ -96,7 +96,7 @@ The `claude` alias configures both Claude Code and Claude Desktop.
 From native Windows PowerShell, use `npx.cmd` to avoid PowerShell execution-policy conflicts with `npx.ps1`:
 
 ```powershell
-npx.cmd --yes github:MendesCorporation/ai-promo-video install
+npx.cmd --yes @apptrix/ai-promo-video install
 ```
 
 Run the installer in the same environment as the agent client. Native Windows clients use `%USERPROFILE%` and `%LOCALAPPDATA%`; an installer launched inside WSL uses the Linux home directory and configures clients running inside WSL. A WSL installation does not configure native Windows Codex, Claude, or Cursor, and a native installation does not configure their WSL instances.
