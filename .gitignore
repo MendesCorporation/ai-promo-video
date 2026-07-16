@@ -2,6 +2,8 @@
 node_modules/
 .venv/
 dist/
+!plugins/ai-promo-video/dist/
+!plugins/ai-promo-video/dist/**
 coverage/
 *.tsbuildinfo
 *.tgz
