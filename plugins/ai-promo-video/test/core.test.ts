@@ -350,6 +350,26 @@ describe('progressive contextual help', () => {
     expect(transition.help.validation.join(' ')).toContain('first settled destination frame');
   });
 
+  it('promotes target-shaped queries and normalizes MCP ids in free-text search', () => {
+    const promoted = getContextualHelp({query: 'tool:scaffold_advanced_video'}) as {
+      mode: string; target: string; help: {id: string; parameters: Record<string, unknown>};
+    };
+    expect(promoted).toMatchObject({mode: 'detail', target: 'tool:scaffold_advanced_video'});
+    expect(promoted.help.id).toBe('scaffold_advanced_video');
+    expect(promoted.help.parameters).toHaveProperty('outputDir');
+
+    const tolerantTarget = getContextualHelp({target: 'tool:scaffold-advanced-video'}) as {mode: string; target: string};
+    expect(tolerantTarget).toMatchObject({mode: 'detail', target: 'tool:scaffold_advanced_video'});
+
+    const freeSearch = getContextualHelp({query: 'scaffold_advanced_video', limit: 4}) as {mode: string; results: Array<{target: string}>};
+    expect(freeSearch.mode).toBe('search');
+    expect(freeSearch.results.map((entry) => entry.target)).toContain('tool:scaffold_advanced_video');
+
+    const missing = getContextualHelp({query: 'tool:not_a_real_tool'}) as {mode: string; requested: string; suggestions: unknown[]};
+    expect(missing).toMatchObject({mode: 'not-found', requested: 'tool:not_a_real_tool'});
+    expect(missing.suggestions.length).toBeGreaterThan(0);
+  });
+
   it('loads Revideo scene-tree safety only through exact contextual help', async () => {
     const compact = getContextualHelp({query: 'detached fragment scene tree', limit: 4}) as {results: Array<{target: string; example?: string}>};
     expect(compact.results.map((entry) => entry.target)).toContain('topic:revideo-scene-tree');

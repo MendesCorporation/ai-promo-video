@@ -42,7 +42,7 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.6.1',
+  version: '0.6.2',
 }, {
   capabilities: { logging: {} },
   instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
@@ -109,7 +109,7 @@ server.registerTool('load_director_guide', {
 
 server.registerTool('help', {
   title: 'AI Promo Video Contextual Help',
-  description: 'Progressively load detailed documentation for one exact MCP tool, motion component, transition, or production topic. Call without arguments for a compact index, with query for short candidates, then with target kind:id (or kind plus id) for complete parameters, values, constraints, examples, pitfalls, and validation.',
+  description: 'Progressively load detailed documentation for one exact MCP tool, motion component, transition, or production topic. Call without arguments for a compact index, with query for short candidates, then with target kind:id (or kind plus id) for complete parameters, values, constraints, examples, pitfalls, and validation. For tolerance, query values already shaped as kind:id are promoted automatically to exact target lookups.',
   inputSchema: {
     target: z.string().min(1).optional(),
     kind: z.enum(helpKinds).optional(),

@@ -58,7 +58,7 @@ export const toolHelpEntries: HelpEntry[] = [
     target: parameter('string', 'Compact target in kind:id form, for example component:liquid-glass-text or tool:render_advanced_video.'),
     kind: parameter("'tool' | 'component' | 'transition' | 'topic'", 'Optional target kind when id is supplied separately.'),
     id: parameter('string', 'Exact id inside the selected kind.'),
-    query: parameter('string', 'Search terms used only to return compact candidates, not full documentation.'),
+    query: parameter('string', 'Free-text search terms for compact candidates. A value already shaped as kind:id is automatically promoted to an exact target lookup.'),
     limit: parameter('integer', 'Maximum search candidates.', {default: 12, accepted: '1..30'}),
   }, {
     workflow: ['Call with no arguments for a compact index.', 'Search when the exact id is unknown.', 'Call again with an exact target before using a fragile or unfamiliar feature.'],
@@ -507,11 +507,30 @@ function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, '-');
 }
 
+function normalizeSearch(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_:\s./]+/g, '-')
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function targetLikeQuery(query: string): string | undefined {
+  const match = /^\s*(tool|component|transition|topic)\s*:\s*(.+?)\s*$/i.exec(query);
+  if (!match) return undefined;
+  return `${match[1].toLowerCase()}:${match[2]}`;
+}
+
 function resolveExact(kind: HelpKind, id: string): HelpEntry | undefined {
   const normalized = normalize(id);
-  if (kind === 'tool') return toolById.get(normalized);
-  if (kind === 'topic') return topicById.get(normalized);
-  const component = componentById.get(normalized);
+  const searchNormalized = normalizeSearch(id);
+  if (kind === 'tool') return toolById.get(normalized) ?? toolHelpEntries.find((entry) => normalizeSearch(entry.id) === searchNormalized);
+  if (kind === 'topic') return topicById.get(normalized) ?? topicHelpEntries.find((entry) => normalizeSearch(entry.id) === searchNormalized);
+  const component = componentById.get(normalized) ?? motionComponentLibrary.find((entry) => normalizeSearch(entry.id) === searchNormalized);
   if (!component) return undefined;
   if (kind === 'transition' && component.category !== 'transition') return undefined;
   return componentHelp(component, kind === 'transition' ? 'transition' : 'component');
@@ -575,7 +594,11 @@ export function getContextualHelp(options: GetHelpOptions = {}) {
     return {mode: 'not-found', requested: id, suggestions: searchHelp(id, limit)};
   }
 
-  if (options.query) return {mode: 'search', query: options.query, results: searchHelp(options.query, limit)};
+  if (options.query) {
+    const promotedTarget = targetLikeQuery(options.query);
+    if (promotedTarget) return getContextualHelp({target: promotedTarget, limit});
+    return {mode: 'search', query: options.query, results: searchHelp(options.query, limit)};
+  }
 
   const categoryCounts = Object.fromEntries(motionComponentCategories.map((category) => [
     category,
@@ -603,14 +626,15 @@ export function getContextualHelp(options: GetHelpOptions = {}) {
 }
 
 function searchHelp(query: string, limit: number) {
-  const terms = normalize(query).split('-').filter(Boolean);
+  const terms = normalizeSearch(query).split('-').filter(Boolean);
   return searchableEntries()
     .map((entry) => {
-      const haystack = normalize([
+      const normalizedId = normalizeSearch(entry.id);
+      const haystack = normalizeSearch([
         entry.kind, entry.id, entry.title, entry.summary,
         ...(entry.tags ?? []), ...(entry.sourceExports ?? []), ...(entry.related ?? []),
       ].join(' '));
-      const score = terms.reduce((total, term) => total + (haystack.includes(term) ? (entry.id.includes(term) ? 4 : 1) : 0), 0);
+      const score = terms.reduce((total, term) => total + (haystack.includes(term) ? (normalizedId.includes(term) ? 4 : 1) : 0), 0);
       return {entry, score};
     })
     .filter(({score}) => score > 0)
