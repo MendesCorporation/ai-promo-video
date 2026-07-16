@@ -40,6 +40,7 @@
     "qanode:capture": "npm run qanode:capture --workspace=@ai-promo-video/core",
     "qanode:render": "npm run qanode:render --workspace=@ai-promo-video/core",
     "qanode:advanced": "npm run qanode:advanced --workspace=@ai-promo-video/core",
-    "benchmark:render": "npm run benchmark:render --workspace=@ai-promo-video/core"
+    "benchmark:render": "npm run benchmark:render --workspace=@ai-promo-video/core",
+    "prepare": "npm run build"
   }
 }
