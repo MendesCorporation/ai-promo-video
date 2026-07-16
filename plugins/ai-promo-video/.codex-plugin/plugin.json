@@ -1,6 +1,6 @@
 {
   "name": "ai-promo-video",
-  "version": "0.6.4",
+  "version": "0.4.1",
   "description": "Create polished AI-directed promo videos from real product captures and licensed free media with a headless pipeline.",
   "author": {
     "name": "AI Promo Video contributors"

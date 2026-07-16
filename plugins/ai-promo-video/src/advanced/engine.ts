@@ -1,7 +1,6 @@
 import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fork, spawn } from 'node:child_process';
-import type { ForkOptions } from 'node:child_process';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { motionComponentLibrary, motionLibrarySummary } from './library.js';
@@ -161,7 +160,7 @@ export async function renderAdvancedProject(options: {
       env: { ...process.env, DISABLE_TELEMETRY: 'true' },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       windowsHide: true,
-    } as ForkOptions & { windowsHide: boolean });
+    });
     const childPid = child.pid;
     let settled = false;
     let startedRendering = false;
