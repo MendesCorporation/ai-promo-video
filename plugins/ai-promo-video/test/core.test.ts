@@ -521,6 +521,7 @@ describe('universal client installation', () => {
     const rootPackage = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
     const runtimePackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { scripts?: Record<string, string> };
     expect(rootPackage.scripts).not.toHaveProperty('postinstall');
+    expect(rootPackage.scripts).not.toHaveProperty('prepare');
     expect(runtimePackage.scripts?.postinstall).toBe('node scripts/apply-revideo-patches.mjs');
     expect(runtimeEntries).toContain('scripts');
   });
