@@ -224,7 +224,7 @@ export const toolHelpEntries: HelpEntry[] = [
     relativePath: parameter('string', 'Safe relative source path.', {required: true}),
     patches: parameter('{find:string, replace:string}[]', 'Exact, unique replacements.', {required: true, accepted: '1..50'}),
   }, {pitfalls: ['Read the current source immediately before patching.', 'Do not use a broad fragment that occurs more than once.']}),
-  tool('render_advanced_video', 'Render Revideo Composition', 'Render the code-first composition with progress, cancellation, timeout protection, and cleanup.', {
+  tool('render_advanced_video', 'Render Revideo Composition', 'Preflight and render the code-first composition with structured diagnostics, progress, cancellation, timeout protection, and cleanup.', {
     projectFile: parameter('path string', 'Revideo project.tsx.', {required: true}),
     output: parameter('MP4 path string', 'Output file.', {required: true}),
     variables: parameter('record<string, unknown>', 'Optional Revideo project variables.'),
@@ -237,8 +237,10 @@ export const toolHelpEntries: HelpEntry[] = [
     stallTimeoutSeconds: parameter('integer', 'Maximum time without render progress.', {default: 300, accepted: '10..3600'}),
     maxRenderSeconds: parameter('integer', 'Absolute render deadline.', {default: 7200, accepted: '30..86400'}),
   }, {
-    prerequisites: ['An automatic Revideo 0.11 scene-tree preflight runs before Chromium starts and blocks nested JSX collections that would render invisibly.'],
-    workflow: ['Render.', 'If preflight reports REV011_NESTED_JSX_FRAGMENT_MAP or REV011_NESTED_JSX_ARRAY_MAP, load topic:revideo-scene-tree and fix the reported file/line.', 'Probe the result.', 'Create and directly inspect a fresh review pack.'],
+    prerequisites: ['Before Chromium starts, automatic preflight checks TypeScript syntax, unresolved names, broken imports/exports, missing properties, and Revideo 0.11 nested JSX collections that would render invisibly.'],
+    workflow: ['Render.', 'If the MCP result has isError=true, read diagnostics[] and patch the exact file, line, column, and codeFrame before retrying.', 'For REV011_NESTED_JSX_FRAGMENT_MAP or REV011_NESTED_JSX_ARRAY_MAP, load topic:revideo-scene-tree.', 'Probe the result.', 'Create and directly inspect a fresh review pack.'],
+    pitfalls: ['Do not retry an unchanged source after preflight identifies a deterministic code error.', 'The focused type preflight intentionally checks render-blocking syntax/names/imports rather than rejecting every strict TypeScript style mismatch accepted by Revideo.'],
+    validation: ['Invalid authored names and imports fail before a Chromium process is created.', 'Every reported TypeScript or runtime source location includes file, line, column, and a local code frame when the source is readable.'],
     related: ['topic:revideo-scene-tree', 'tool:probe_video', 'tool:create_visual_review_pack'],
   }),
   tool('edit_capture_image', 'Edit Capture Image', 'Create a non-destructive crop, resize, correction, blur, or redaction derivative.', {

@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 const require = createRequire(import.meta.url);
 const EXPECTED_REVIDEO_VERSION = '0.11.0';
 const PATCH_NAME = 'revideo-0.11-shader-scene-context';
+const DIAGNOSTIC_PATCH_NAME = 'revideo-0.11-browser-error-stack';
 const checkOnly = process.argv.includes('--check');
 const workspaceDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -45,12 +46,22 @@ async function resolvePackage(packageName) {
 
 async function main() {
   const revideo2d = await resolvePackage('@revideo/2d');
+  const revideoCore = await resolvePackage('@revideo/core');
+  const revideoRenderer = await resolvePackage('@revideo/renderer');
   if (revideo2d.packageJson.version !== EXPECTED_REVIDEO_VERSION) {
     throw new Error(
       `${PATCH_NAME}: expected @revideo/2d ${EXPECTED_REVIDEO_VERSION}, ` +
         `found ${revideo2d.packageJson.version}. Review or remove the local patch ` +
         'before changing the pinned Revideo version.',
     );
+  }
+  for (const dependency of [revideoCore, revideoRenderer]) {
+    if (dependency.packageJson.version !== EXPECTED_REVIDEO_VERSION) {
+      throw new Error(
+        `${DIAGNOSTIC_PATCH_NAME}: expected Revideo ${EXPECTED_REVIDEO_VERSION}, ` +
+          `found ${dependency.packageJson.version}. Review the local patch before changing the pinned Revideo version.`,
+      );
+    }
   }
 
   const nodePath = join(revideo2d.directory, 'lib', 'components', 'Node.js');
@@ -60,9 +71,13 @@ async function main() {
     'partials',
     'ShaderConfig.js',
   );
+  const loggerPath = join(revideoCore.directory, 'lib', 'app', 'Logger.js');
+  const renderClientPath = join(revideoRenderer.directory, 'lib', 'client', 'render.js');
 
   let nodeSource = await readFile(nodePath, 'utf8');
   let shaderConfigSource = await readFile(shaderConfigPath, 'utf8');
+  let loggerSource = await readFile(loggerPath, 'utf8');
+  let renderClientSource = await readFile(renderClientPath, 'utf8');
   let changed = false;
 
   const constructorPatch = applyExactReplacement(
@@ -110,6 +125,27 @@ async function main() {
   shaderConfigSource = parserPatch.source;
   changed ||= parserPatch.changed;
 
+  const loggerStackPatch = applyExactReplacement(
+    loggerSource,
+    `            window.browserError(typeof payload === 'string' ? payload : payload.message);`,
+    `            // ${DIAGNOSTIC_PATCH_NAME}: preserve authored browser stacks for structured diagnostics.\n` +
+      `            window.browserError(typeof payload === 'string' ? payload : payload.stack ?? payload.message);`,
+    'Logger browserError stack',
+  );
+  loggerSource = loggerStackPatch.source;
+  changed ||= loggerStackPatch.changed;
+
+  const renderStackPatch = applyExactReplacement(
+    renderClientSource,
+    `        window.onRenderFailed(e.message);`,
+    `        // ${DIAGNOSTIC_PATCH_NAME}: pass the Vite-authored stack to the Node renderer.\n` +
+      `        const error = e instanceof Error ? e : new Error(String(e));\n` +
+      `        window.onRenderFailed(error.stack ?? error.message);`,
+    'renderer client error stack',
+  );
+  renderClientSource = renderStackPatch.source;
+  changed ||= renderStackPatch.changed;
+
   if (checkOnly) {
     if (changed) {
       throw new Error(
@@ -118,14 +154,14 @@ async function main() {
       );
     }
     process.stdout.write(
-      `[ai-promo-video] ${PATCH_NAME} is applied to @revideo/2d ${EXPECTED_REVIDEO_VERSION}.\n`,
+      `[ai-promo-video] ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} are applied to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
     );
     return;
   }
 
   if (!changed) {
     process.stdout.write(
-      `[ai-promo-video] ${PATCH_NAME} is already applied.\n`,
+      `[ai-promo-video] ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} are already applied.\n`,
     );
     return;
   }
@@ -133,6 +169,8 @@ async function main() {
   await Promise.all([
     writeFile(nodePath, nodeSource, 'utf8'),
     writeFile(shaderConfigPath, shaderConfigSource, 'utf8'),
+    writeFile(loggerPath, loggerSource, 'utf8'),
+    writeFile(renderClientPath, renderClientSource, 'utf8'),
   ]);
 
   // Vite may have optimized the unpatched runtime during a previous install.
@@ -147,7 +185,7 @@ async function main() {
   );
 
   process.stdout.write(
-    `[ai-promo-video] Applied ${PATCH_NAME} to @revideo/2d ${EXPECTED_REVIDEO_VERSION}.\n`,
+    `[ai-promo-video] Applied ${PATCH_NAME} and ${DIAGNOSTIC_PATCH_NAME} to Revideo ${EXPECTED_REVIDEO_VERSION}.\n`,
   );
 }
 

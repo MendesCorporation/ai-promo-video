@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from '../src/advanced/engine.js';
 import { validateAdvancedProjectSource, validateRevideoSceneSource } from '../src/advanced/source-validation.js';
+import {AdvancedTypecheckError, validateAdvancedProjectTypes} from '../src/advanced/typecheck.js';
+import {rendererFailureReport, serializeAdvancedError} from '../src/advanced/diagnostics.js';
 import { flattenSceneNodes } from '../assets/revideo-template/scene-tree.js';
 import { listAudioTracks } from '../src/audio/catalog.js';
 import { analyzeMusic } from '../src/audio/analyze.js';
@@ -253,6 +255,7 @@ describe('advanced project source', () => {
     expect(formatProfile).toMatchObject({ width: 1080, height: 1920, platform: 'tiktok' });
     expect(formatProfile.safeAreaPixels.right).toBeGreaterThan(0);
     expect(project.formatProfile).toMatchObject({ id: 'portrait', width: 1080, height: 1920, platform: 'tiktok' });
+    expect(validateAdvancedProjectTypes(project.projectFile)).toMatchObject({valid: true, diagnostics: []});
     expect(libraryManifest.count).toBe(motionComponentLibrary.length);
     expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
@@ -289,6 +292,69 @@ describe('advanced project source', () => {
     expect(validation).toMatchObject({valid: false, filesChecked: ['project.tsx', 'scene.tsx']});
     expect(validation.issues[0]).toMatchObject({file: 'scene.tsx', line: 2});
     await expect(renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')})).rejects.toThrow(/REV011_NESTED_JSX_FRAGMENT_MAP/);
+  });
+
+  it('catches invalid names, imports, and exports before renderer startup with code frames', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-typecheck-'));
+    const projectFile = join(directory, 'project.tsx');
+    await writeFile(projectFile, `/** @jsxImportSource @revideo/2d/lib */
+import {makeProject, notARealExport} from '@revideo/core';
+import scene from './scene';
+import missing from './missing-helper';
+void notARealExport;
+void missing;
+void MissingTimelineName;
+export default makeProject({scenes: [scene]});
+`);
+    await writeFile(join(directory, 'scene.tsx'), `/** @jsxImportSource @revideo/2d/lib */
+import {makeScene2D} from '@revideo/2d';
+export default makeScene2D('test', function* () {});
+`);
+
+    const validation = validateAdvancedProjectTypes(projectFile);
+    expect(validation.valid).toBe(false);
+    expect(validation.elapsedMs).toBeLessThan(5_000);
+    expect(validation.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(expect.arrayContaining(['TS2305', 'TS2307', 'TS2304']));
+    expect(validation.diagnostics.every((diagnostic) => diagnostic.file === projectFile && diagnostic.line && diagnostic.column && diagnostic.codeFrame?.includes('^'))).toBe(true);
+
+    let failure: unknown;
+    try {
+      await renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')});
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AdvancedTypecheckError);
+    expect(serializeAdvancedError(failure)).toMatchObject({
+      ok: false,
+      phase: 'preflight',
+      diagnostics: expect.arrayContaining([expect.objectContaining({code: 'TS2307', relativeFile: 'project.tsx'})]),
+    });
+  });
+
+  it('turns renderer stacks into structured source diagnostics', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-runtime-error-'));
+    const projectFile = join(directory, 'project.tsx');
+    const sceneFile = join(directory, 'scene.tsx');
+    await writeFile(projectFile, 'export default {};\n');
+    await writeFile(sceneFile, `const first = 1;\nthrow new Error('broken frame');\nconst last = 3;\n`);
+    const report = rendererFailureReport(
+      'Advanced renderer failed: broken frame',
+      `Error: broken frame\n    at scene (http://localhost:9000/scene.tsx:1:7)`,
+      projectFile,
+    );
+    expect(report).toMatchObject({
+      ok: false,
+      phase: 'renderer',
+      diagnostics: [expect.objectContaining({
+        code: 'REVIDEO_RUNTIME',
+        file: sceneFile,
+        relativeFile: 'scene.tsx',
+        line: 2,
+        column: 18,
+      })],
+    });
+    expect(report.diagnostics[0].codeFrame).toContain(`> 2 | throw new Error('broken frame');`);
+    expect(report.diagnostics[0].codeFrame).toContain('^');
   });
 
   it('searches a broad component vocabulary by intent without returning a default template', () => {

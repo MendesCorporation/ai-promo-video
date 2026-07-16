@@ -1,5 +1,7 @@
+import {readFileSync} from 'node:fs';
 import {readFile, readdir} from 'node:fs/promises';
 import {basename, dirname, extname, join, relative, resolve} from 'node:path';
+import {AdvancedDiagnosticError, createCodeFrame, type AdvancedFailureReport} from './diagnostics.js';
 
 export type AdvancedSourceIssueCode =
   | 'REV011_NESTED_JSX_FRAGMENT_MAP'
@@ -231,15 +233,37 @@ export async function validateAdvancedProjectSource(projectFileInput: string): P
   return {valid: issues.length === 0, projectFile, filesChecked: files.map((path) => relative(root, path) || basename(path)), issues};
 }
 
-export class AdvancedSourceValidationError extends Error {
+export class AdvancedSourceValidationError extends AdvancedDiagnosticError {
   constructor(public readonly validation: AdvancedSourceValidationResult) {
-    const details = validation.issues.map((issue) =>
-      `- ${issue.file}:${issue.line}:${issue.column} [${issue.code}] ${issue.message}\n  Fix: ${issue.suggestion}`,
-    ).join('\n');
-    super(
-      `Revideo source validation failed before renderer startup:\n${details}\n` +
-      `Contextual help: help({target: 'topic:revideo-scene-tree'})`,
-    );
+    const root = dirname(validation.projectFile);
+    const report: AdvancedFailureReport = {
+      ok: false,
+      phase: 'preflight',
+      summary: 'Revideo source validation failed before renderer startup.',
+      diagnostics: validation.issues.map((issue) => {
+        const file = resolve(root, issue.file);
+        let codeFrame: string | undefined;
+        try {
+          codeFrame = createCodeFrame(readFileSync(file, 'utf8'), issue.line, issue.column);
+        } catch {
+          // Source may have been removed between validation and error formatting.
+        }
+        return {
+          stage: 'source-preflight',
+          severity: issue.severity,
+          code: issue.code,
+          message: issue.message,
+          file,
+          relativeFile: issue.file,
+          line: issue.line,
+          column: issue.column,
+          ...(codeFrame ? {codeFrame} : {}),
+          suggestion: issue.suggestion,
+          helpTarget: issue.helpTarget,
+        };
+      }),
+    };
+    super(report);
     this.name = 'AdvancedSourceValidationError';
   }
 }

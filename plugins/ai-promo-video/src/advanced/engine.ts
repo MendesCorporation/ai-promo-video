@@ -7,6 +7,8 @@ import { motionComponentLibrary, motionLibrarySummary } from './library.js';
 import { resolveVideoFormat, type PlatformTarget, type VideoFormatId, type VideoFormatProfile } from './formats.js';
 import type { AdvancedRenderParentMessage, AdvancedRenderWorkerMessage, RenderProgressUpdate } from './render-protocol.js';
 import { AdvancedSourceValidationError, validateAdvancedProjectSource } from './source-validation.js';
+import {AdvancedDiagnosticError, rendererFailureReport} from './diagnostics.js';
+import {AdvancedTypecheckError, validateAdvancedProjectTypes} from './typecheck.js';
 
 export type { RenderPhase, RenderProgressUpdate } from './render-protocol.js';
 
@@ -146,6 +148,8 @@ export async function renderAdvancedProject(options: {
   }
   const sourceValidation = await validateAdvancedProjectSource(projectFile);
   if (!sourceValidation.valid) throw new AdvancedSourceValidationError(sourceValidation);
+  const typecheck = validateAdvancedProjectTypes(projectFile);
+  if (!typecheck.valid) throw new AdvancedTypecheckError(typecheck);
   await mkdir(dirname(output), { recursive: true });
 
   return new Promise((resolvePromise, rejectPromise) => {
@@ -204,8 +208,10 @@ export async function renderAdvancedProject(options: {
       options.signal?.removeEventListener('abort', onAbort);
       terminateTree();
       const detail = diagnostics.trim();
-      if (detail && !error.message.includes(detail)) error.message += `\nRenderer diagnostics:\n${detail.slice(-4_000)}`;
-      rejectPromise(error);
+      const raw = [error.stack, detail].filter(Boolean).join('\n');
+      rejectPromise(error instanceof AdvancedDiagnosticError
+        ? error
+        : new AdvancedDiagnosticError(rendererFailureReport(error.message, raw, projectFile)));
     };
 
     const resetStallTimer = (): void => {

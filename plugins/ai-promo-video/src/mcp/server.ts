@@ -24,6 +24,7 @@ import { cleanDeliveryOutput } from '../media/cleanup.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos } from '../library/search.js';
 import { getContextualHelp, helpKinds } from '../help/catalog.js';
 import { attachSourceContracts } from '../help/source-contract.js';
+import {serializeAdvancedError} from '../advanced/diagnostics.js';
 
 const skillDirectory = fileURLToPath(new URL('../../skills/create-ai-promo-video/', import.meta.url));
 const directorGuide = await readFile(join(skillDirectory, 'SKILL.md'), 'utf8');
@@ -42,7 +43,7 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.6.2',
+  version: '0.6.3',
 }, {
   capabilities: { logging: {} },
   instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
@@ -50,6 +51,13 @@ const server = new McpServer({
 
 function response(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
+}
+
+function errorResponse(error: unknown) {
+  return {
+    isError: true as const,
+    content: [{type: 'text' as const, text: JSON.stringify(serializeAdvancedError(error), null, 2)}],
+  };
 }
 
 server.registerResource('ai-promo-director-guide', 'ai-promo://director-guide', {
@@ -467,7 +475,7 @@ server.registerTool('patch_advanced_video_file', {
 
 server.registerTool('render_advanced_video', {
   title: 'Render Revideo Composition',
-  description: 'Headlessly render the library-first and custom TypeScript composition in an isolated process group, with live phase/percentage updates, cancellation, timeout protection, and automatic Chromium/Vite cleanup. Optionally renders only a changed time range. Telemetry is disabled.',
+  description: 'Headlessly render the library-first and custom TypeScript composition in an isolated process group. Before Chromium starts, a fast preflight catches syntax errors, invalid names, broken imports, missing exports, and unsafe Revideo scene-tree collections. Failures return structured file/line/column/code-frame diagnostics. Includes live progress, cancellation, timeout protection, and automatic Chromium/Vite cleanup. Optionally renders only a changed time range. Telemetry is disabled.',
   inputSchema: {
     projectFile: z.string().min(1),
     output: z.string().regex(/\.mp4$/),
@@ -510,16 +518,27 @@ server.registerTool('render_advanced_video', {
       }, extra.sessionId).catch(() => undefined);
     });
   };
-  const result = await renderAdvancedProject({
-    ...options,
-    signal: extra.signal,
-    startupTimeoutMs: startupTimeoutSeconds * 1000,
-    stallTimeoutMs: stallTimeoutSeconds * 1000,
-    maxRenderTimeMs: maxRenderSeconds * 1000,
-    onProgress: publishProgress,
-  });
-  await notifications;
-  return response(result);
+  try {
+    const result = await renderAdvancedProject({
+      ...options,
+      signal: extra.signal,
+      startupTimeoutMs: startupTimeoutSeconds * 1000,
+      stallTimeoutMs: stallTimeoutSeconds * 1000,
+      maxRenderTimeMs: maxRenderSeconds * 1000,
+      onProgress: publishProgress,
+    });
+    await notifications;
+    return response(result);
+  } catch (error) {
+    await notifications;
+    const report = serializeAdvancedError(error);
+    await server.sendLoggingMessage({
+      level: 'error',
+      logger: 'ai-promo-video.render',
+      data: report,
+    }, extra.sessionId).catch(() => undefined);
+    return errorResponse(error);
+  }
 });
 
 const cropSchema = z.object({ x: z.number().int().nonnegative(), y: z.number().int().nonnegative(), width: z.number().int().positive(), height: z.number().int().positive() });

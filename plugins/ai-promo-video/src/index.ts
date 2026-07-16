@@ -8,6 +8,8 @@ export * from './render/renderer.js';
 export * from './render/probe.js';
 export * from './advanced/engine.js';
 export * from './advanced/source-validation.js';
+export * from './advanced/typecheck.js';
+export * from './advanced/diagnostics.js';
 export * from './advanced/library.js';
 export * from './advanced/formats.js';
 export * from './captions/timing.js';
