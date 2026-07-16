@@ -238,8 +238,27 @@ async function copyRuntime(sourceRoot: string, runtimeDir: string, options: Inst
     run(process.execPath, [playwrightCli, 'install', 'chromium'], { cwd: staging });
   }
   await mkdir(dirname(runtimeDir), { recursive: true });
-  await rm(runtimeDir, { recursive: true, force: true });
-  await rename(staging, runtimeDir);
+  if (process.platform !== 'win32') {
+    await rm(runtimeDir, { recursive: true, force: true });
+    await rename(staging, runtimeDir);
+    return;
+  }
+  const previousRuntime = `${runtimeDir}.previous-${Date.now()}-${process.pid}`;
+  const hadPreviousRuntime = await exists(runtimeDir);
+  if (hadPreviousRuntime) await rename(runtimeDir, previousRuntime);
+  try {
+    await rename(staging, runtimeDir);
+  } catch (error) {
+    if (hadPreviousRuntime) await rename(previousRuntime, runtimeDir);
+    throw error;
+  }
+  if (hadPreviousRuntime) {
+    try {
+      await rm(previousRuntime, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+    } catch {
+      console.warn(`Previous runtime is still in use and was retained for cleanup: ${previousRuntime}`);
+    }
+  }
 }
 
 async function materializeSkill(source: string, destination: string, dryRun: boolean): Promise<void> {
