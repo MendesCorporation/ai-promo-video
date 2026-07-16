@@ -9,6 +9,7 @@ import {
   waitFor,
 } from '@revideo/core';
 import {ambientCamera, ambientParallax, type AmbientCameraOptions, type AmbientParallaxOptions} from './ambient';
+import {assertSceneNodesMounted} from './scene-tree';
 
 export type CameraPoint = [number, number];
 
@@ -46,6 +47,7 @@ export interface DollyInOptions {
 /** Dolly a world rig toward one focal coordinate with a subtle curved travel path. */
 export function* dollyIn(cameraRef: Reference<Node>, duration = 1.4, options: DollyInOptions = {}) {
   const camera = cameraRef();
+  assertSceneNodesMounted(camera, 'dollyIn camera');
   const origin = position(camera);
   const initialScale = scale(camera);
   const initialRotation = camera.rotation();
@@ -72,11 +74,13 @@ export function* dollyIn(cameraRef: Reference<Node>, duration = 1.4, options: Do
 
 /** Named catalog wrapper around the continuous ambient camera primitive. */
 export function ambientCameraRig(cameraRef: Reference<Node>, duration: number, options: AmbientCameraOptions = {}) {
+  assertSceneNodesMounted(cameraRef(), 'ambientCameraRig camera');
   return ambientCamera(cameraRef, duration, options);
 }
 
 /** Named catalog wrapper around the continuous multi-depth parallax primitive. */
 export function ambientParallaxRig(layerRefs: Array<Reference<Node>>, duration: number, options: AmbientParallaxOptions = {}) {
+  assertSceneNodesMounted(layerRefs.map((ref) => ref()), 'ambientParallaxRig layers');
   return ambientParallax(layerRefs, duration, options);
 }
 
@@ -93,6 +97,7 @@ export interface OrbitSweepOptions {
 /** Arc a 2.5D world rig around a focus while counter-shaping the product plane. */
 export function* orbitSweep(cameraRef: Reference<Node>, duration = 1.6, options: OrbitSweepOptions = {}) {
   const camera = cameraRef();
+  assertSceneNodesMounted([camera, ...(options.planeRef ? [options.planeRef()] : [])], 'orbitSweep nodes');
   const origin = position(camera);
   const initialScale = scale(camera);
   const initialRotation = camera.rotation();
@@ -145,6 +150,7 @@ export interface FocusTrackOptions {
 export function* focusTrack(cameraRef: Reference<Node>, targets: FocusTarget[], options: FocusTrackOptions = {}) {
   if (targets.length === 0) return;
   const camera = cameraRef();
+  assertSceneNodesMounted(camera, 'focusTrack camera');
   for (const target of targets) {
     const current = position(camera);
     const currentScale = scale(camera);
@@ -189,6 +195,7 @@ export interface ParallaxPanOptions {
 /** Pan three or more authored layers at distinct depth rates while stabilizing the focal subject. */
 export function parallaxPan(layerRefs: Array<Reference<Node>>, duration = 1.6, options: ParallaxPanOptions = {}) {
   if (layerRefs.length < 2) throw new Error('parallaxPan requires at least two depth layers');
+  assertSceneNodesMounted(layerRefs.map((ref) => ref()), 'parallaxPan layers');
   const direction = normalize(options.direction ?? [-1, 0]);
   const distance = options.distance ?? 180;
   const subjectIndex = options.subjectIndex ?? Math.floor(layerRefs.length / 2);
@@ -222,6 +229,7 @@ export interface PerspectiveTiltOptions {
 /** Animate through a 2.5D product-plane tilt instead of holding a static skewed screenshot. */
 export function* perspectiveTilt(frameRef: Reference<Node>, duration = 1.25, options: PerspectiveTiltOptions = {}) {
   const frame = frameRef();
+  assertSceneNodesMounted(frame, 'perspectiveTilt frame');
   const originalPosition = position(frame);
   const originalScale = scale(frame);
   const fromSkew = options.fromSkew ?? [-8, 3];
@@ -257,6 +265,7 @@ export interface CameraPathKeyframe {
 /** Open custom escape hatch for any authored camera path not represented by catalog rigs. */
 export function* cameraPath(cameraRef: Reference<Node>, keyframes: CameraPathKeyframe[]) {
   const camera = cameraRef();
+  assertSceneNodesMounted(camera, 'cameraPath camera');
   for (const keyframe of keyframes) {
     const targetScale = typeof keyframe.scale === 'number' ? [keyframe.scale, keyframe.scale] as CameraPoint : keyframe.scale ?? scale(camera);
     yield* all(

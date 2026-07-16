@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { motionComponentLibrary, motionLibrarySummary } from './library.js';
 import { resolveVideoFormat, type PlatformTarget, type VideoFormatId, type VideoFormatProfile } from './formats.js';
 import type { AdvancedRenderParentMessage, AdvancedRenderWorkerMessage, RenderProgressUpdate } from './render-protocol.js';
+import { AdvancedSourceValidationError, validateAdvancedProjectSource } from './source-validation.js';
 
 export type { RenderPhase, RenderProgressUpdate } from './render-protocol.js';
 
@@ -143,6 +144,8 @@ export async function renderAdvancedProject(options: {
   for (const [name, value] of Object.entries({ startupTimeoutMs, stallTimeoutMs, maxRenderTimeMs })) {
     if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be greater than zero`);
   }
+  const sourceValidation = await validateAdvancedProjectSource(projectFile);
+  if (!sourceValidation.valid) throw new AdvancedSourceValidationError(sourceValidation);
   await mkdir(dirname(output), { recursive: true });
 
   return new Promise((resolvePromise, rejectPromise) => {

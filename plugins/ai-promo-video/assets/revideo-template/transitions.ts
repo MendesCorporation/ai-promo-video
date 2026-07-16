@@ -11,6 +11,7 @@ import {
   waitFor,
 } from '@revideo/core';
 import {morphVectorPath} from './vector-motion';
+import {assertSceneNodesMounted} from './scene-tree';
 
 export type TransitionPoint = [number, number];
 export type TransitionBounds = {x: number; y: number; width: number; height: number};
@@ -66,6 +67,7 @@ export function* directionalPush(
 ) {
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([outgoing, incoming], 'directionalPush scenes');
   const direction = normalize(options.direction ?? [-1, 0]);
   const distance = options.distance ?? 1320;
   const overlap = clamp(options.overlap ?? 0.28, 0.05, 0.8);
@@ -111,6 +113,7 @@ export function* zoomThrough(
 ) {
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([outgoing, incoming], 'zoomThrough scenes');
   const target = options.target ?? [0, 0];
   const zoom = Math.max(1.2, options.zoom ?? 5.2);
   const blurAmount = Math.max(0, options.blur ?? 24);
@@ -163,6 +166,7 @@ export function* shapeWipe(
   const shape = shapeRef();
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([shape, outgoing, incoming], 'shapeWipe nodes');
   const shapeTarget = position(shape);
   const shapeTargetScale = scale(shape);
   const incomingScale = scale(incoming);
@@ -211,6 +215,7 @@ export function* objectCarry(
   const object = objectRef();
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([object, outgoing, incoming], 'objectCarry nodes');
   const start = position(object);
   const startScale = scale(object);
   const targetScale = typeof options.endScale === 'number'
@@ -256,6 +261,7 @@ export function* directionalBlurCut(
 ) {
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([outgoing, incoming, ...echoRefs.map((ref) => ref())], 'directionalBlurCut nodes');
   const direction = normalize(options.direction ?? [-1, 0]);
   const distance = options.distance ?? 360;
   const blurAmount = options.blur ?? 34;
@@ -300,8 +306,13 @@ export interface MatchScaleOptions {
   overlap?: number;
 }
 
-function poseFromBounds(bounds: TransitionBounds): {position: TransitionPoint; scale: TransitionPoint} {
-  return {position: [bounds.x, bounds.y], scale: [bounds.width, bounds.height]};
+function poseFromBounds(bounds: TransitionBounds): {position: TransitionPoint; scale: TransitionPoint; width: number; height: number} {
+  return {
+    position: [bounds.x, bounds.y],
+    scale: [bounds.width, bounds.height],
+    width: bounds.width,
+    height: bounds.height,
+  };
 }
 
 /** Animate a caller-authored bridge clone between measured source and destination bounds. */
@@ -315,6 +326,7 @@ export function* matchScale(
   const bridge = bridgeRef();
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([bridge, outgoing, incoming], 'matchScale nodes');
   const from = poseFromBounds(options.fromBounds);
   const to = poseFromBounds(options.toBounds);
   const baseScale = scale(bridge);
@@ -358,6 +370,7 @@ export function* organicMorphWipe(
   const path = pathRef();
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([path, outgoing, incoming], 'organicMorphWipe nodes');
   const baseScale = scale(path);
   const morphDuration = duration * 0.58;
   incoming.opacity(0);
@@ -391,6 +404,7 @@ export function* sharedElementBridge(
   const bridge = bridgeRef();
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([bridge, outgoing, incoming], 'sharedElementBridge nodes');
   const from = poseFromBounds(options.fromBounds);
   const to = poseFromBounds(options.toBounds);
   const baseScale = scale(bridge);
@@ -440,6 +454,7 @@ export function* whipPanBridge(
 ) {
   const outgoing = outgoingRef();
   const incoming = incomingRef();
+  assertSceneNodesMounted([outgoing, incoming], 'whipPanBridge scenes');
   const direction = normalize(options.direction ?? [-1, 0]);
   const distance = options.distance ?? 1500;
   const blurAmount = options.blur ?? 42;
@@ -485,6 +500,10 @@ export function* displacementReveal(
   if (outgoingStrips.length !== incomingStrips.length || outgoingStrips.length === 0) {
     throw new Error('displacementReveal requires equal non-empty outgoing and incoming strip arrays');
   }
+  assertSceneNodesMounted([
+    ...outgoingStrips.map((ref) => ref()),
+    ...incomingStrips.map((ref) => ref()),
+  ], 'displacementReveal strips');
   const direction = normalize(options.direction ?? [1, 0]);
   const distance = options.distance ?? 220;
   const softness = clamp(options.softness ?? 0.28, 0.05, 0.7);

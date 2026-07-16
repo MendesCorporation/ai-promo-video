@@ -2,7 +2,9 @@ import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, scaffoldAdvancedProject } from '../src/advanced/engine.js';
+import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from '../src/advanced/engine.js';
+import { validateAdvancedProjectSource, validateRevideoSceneSource } from '../src/advanced/source-validation.js';
+import { flattenSceneNodes } from '../assets/revideo-template/scene-tree.js';
 import { listAudioTracks } from '../src/audio/catalog.js';
 import { analyzeMusic } from '../src/audio/analyze.js';
 import { searchLocalMusic } from '../src/audio/search.js';
@@ -195,6 +197,7 @@ describe('advanced project source', () => {
     const formatSource = await readFile(join(directory, 'format.tsx'), 'utf8');
     const proceduralSource = await readFile(join(directory, 'procedural.tsx'), 'utf8');
     const ambientSource = await readFile(join(directory, 'ambient.ts'), 'utf8');
+    const sceneTreeSource = await readFile(join(directory, 'scene-tree.ts'), 'utf8');
     const transitionSource = await readFile(join(directory, 'transitions.ts'), 'utf8');
     const cameraSource = await readFile(join(directory, 'camera.ts'), 'utf8');
     const vectorSource = await readFile(join(directory, 'vector-motion.ts'), 'utf8');
@@ -228,6 +231,9 @@ describe('advanced project source', () => {
     expect(ambientSource).toContain('export function ambientCamera');
     expect(ambientSource).toContain('export function* ambientParallax');
     expect(ambientSource).toContain('export function runWithAmbientMotion');
+    expect(sceneTreeSource).toContain('export function flattenSceneNodes');
+    expect(sceneTreeSource).toContain('export function mapSceneNodes');
+    expect(sceneTreeSource).toContain('export function assertSceneNodeMounted');
     for (const name of ['directionalPush', 'zoomThrough', 'shapeWipe', 'objectCarry', 'directionalBlurCut', 'matchScale', 'organicMorphWipe', 'sharedElementBridge', 'whipPanBridge', 'displacementReveal']) {
       expect(transitionSource).toContain(`export function* ${name}`);
     }
@@ -251,9 +257,38 @@ describe('advanced project source', () => {
     expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
+    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene-tree.ts', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
     await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
+  });
+
+  it('recursively flattens scene-node collections without requiring a Revideo scene context', () => {
+    const first = {id: 'first'} as never;
+    const second = {id: 'second'} as never;
+    expect(flattenSceneNodes([first, [false, null, [second]]])).toEqual([first, second]);
+  });
+
+  it('blocks Revideo 0.11 nested JSX collections before renderer startup', async () => {
+    const directFragment = `view.add(<>{items.map(item => <><Rect /><Txt text={item} /></>)}</>);`;
+    const blockFragment = `view.add(<>{items.map(item => { return (<><Rect /><Txt text={item} /></>); })}</>);`;
+    const jsxArray = `view.add(<>{items.map(item => [<Rect />, <Txt text={item} />])}</>);`;
+    const safeDirectMaps = `view.add(<>{items.map(() => <Rect />)}{items.map(item => <Txt text={item} />)}</>);`;
+    const safeFlatMap = `view.add(items.flatMap(item => <><Rect /><Txt text={item} /></>));`;
+    expect(validateRevideoSceneSource(directFragment)[0]).toMatchObject({code: 'REV011_NESTED_JSX_FRAGMENT_MAP', line: 1, helpTarget: 'topic:revideo-scene-tree'});
+    expect(validateRevideoSceneSource(blockFragment)[0]).toMatchObject({code: 'REV011_NESTED_JSX_FRAGMENT_MAP'});
+    expect(validateRevideoSceneSource(jsxArray)[0]).toMatchObject({code: 'REV011_NESTED_JSX_ARRAY_MAP'});
+    expect(validateRevideoSceneSource(safeDirectMaps)).toEqual([]);
+    expect(validateRevideoSceneSource(safeFlatMap)).toEqual([]);
+    expect(validateRevideoSceneSource(`// ${directFragment}\nconst example = "${directFragment.replaceAll('"', '\\"')}";`)).toEqual([]);
+
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-scene-tree-'));
+    const projectFile = join(directory, 'project.tsx');
+    await writeFile(projectFile, `export default {};`);
+    await writeFile(join(directory, 'scene.tsx'), `\n${directFragment}\n`);
+    const validation = await validateAdvancedProjectSource(projectFile);
+    expect(validation).toMatchObject({valid: false, filesChecked: ['project.tsx', 'scene.tsx']});
+    expect(validation.issues[0]).toMatchObject({file: 'scene.tsx', line: 2});
+    await expect(renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')})).rejects.toThrow(/REV011_NESTED_JSX_FRAGMENT_MAP/);
   });
 
   it('searches a broad component vocabulary by intent without returning a default template', () => {
@@ -313,6 +348,20 @@ describe('progressive contextual help', () => {
     expect(transition.help.kind).toBe('transition');
     expect(transition.help.workflow.join(' ')).toContain('overlap');
     expect(transition.help.validation.join(' ')).toContain('first settled destination frame');
+  });
+
+  it('loads Revideo scene-tree safety only through exact contextual help', async () => {
+    const compact = getContextualHelp({query: 'detached fragment scene tree', limit: 4}) as {results: Array<{target: string; example?: string}>};
+    expect(compact.results.map((entry) => entry.target)).toContain('topic:revideo-scene-tree');
+    expect(compact.results.every((entry) => !('example' in entry))).toBe(true);
+
+    const detailed = await attachSourceContracts(getContextualHelp({target: 'topic:revideo-scene-tree'})) as {
+      help: {pitfalls: string[]; example: string; sourceContracts: Array<{sourceFile: string; exportName: string}>};
+    };
+    expect(detailed.help.pitfalls.join(' ')).toContain('parent() === null');
+    expect(detailed.help.example).toContain('mapSceneNodes');
+    expect(detailed.help.sourceContracts).toHaveLength(5);
+    expect(detailed.help.sourceContracts.every((contract) => contract.sourceFile === 'scene-tree.ts')).toBe(true);
   });
 
   it('documents every MCP tool registered by the server', async () => {

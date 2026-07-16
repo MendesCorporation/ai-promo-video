@@ -6,6 +6,7 @@ import type { HelpEntry } from './catalog.js';
 const templateDirectory = fileURLToPath(new URL('../../assets/revideo-template/', import.meta.url));
 const templateFiles = [
   'motion-library.tsx',
+  'scene-tree.ts',
   'kinetic.ts',
   'captions.tsx',
   'format.tsx',
@@ -109,7 +110,7 @@ function nearestTypeDeclaration(source: string, before: number): string | undefi
 
 function extractFromSource(source: string, file: string, exportName: string): SourceApiContract | undefined {
   const escapedName = exportName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const functionMatch = new RegExp(`export function\\*?\\s+${escapedName}\\s*\\(`).exec(source);
+  const functionMatch = new RegExp(`export function\\*?\\s+${escapedName}(?:\\s*<[^>{}]*>)?\\s*\\(`).exec(source);
   if (functionMatch?.index !== undefined) {
     return {
       exportName,

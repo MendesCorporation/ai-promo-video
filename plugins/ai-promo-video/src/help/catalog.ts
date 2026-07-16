@@ -236,7 +236,11 @@ export const toolHelpEntries: HelpEntry[] = [
     startupTimeoutSeconds: parameter('integer', 'Maximum renderer startup time.', {default: 120, accepted: '10..900'}),
     stallTimeoutSeconds: parameter('integer', 'Maximum time without render progress.', {default: 300, accepted: '10..3600'}),
     maxRenderSeconds: parameter('integer', 'Absolute render deadline.', {default: 7200, accepted: '30..86400'}),
-  }, {workflow: ['Render.', 'Probe the result.', 'Create and directly inspect a fresh review pack.'], related: ['tool:probe_video', 'tool:create_visual_review_pack']}),
+  }, {
+    prerequisites: ['An automatic Revideo 0.11 scene-tree preflight runs before Chromium starts and blocks nested JSX collections that would render invisibly.'],
+    workflow: ['Render.', 'If preflight reports REV011_NESTED_JSX_FRAGMENT_MAP or REV011_NESTED_JSX_ARRAY_MAP, load topic:revideo-scene-tree and fix the reported file/line.', 'Probe the result.', 'Create and directly inspect a fresh review pack.'],
+    related: ['topic:revideo-scene-tree', 'tool:probe_video', 'tool:create_visual_review_pack'],
+  }),
   tool('edit_capture_image', 'Edit Capture Image', 'Create a non-destructive crop, resize, correction, blur, or redaction derivative.', {
     input: parameter('path string', 'Source image.', {required: true}), output: parameter('path string', 'New image.', {required: true}),
     crop: parameter('{x,y,width,height}', 'Non-negative crop rectangle.'), resize: parameter('{width,height,fit,background}', 'Positive dimensions; fit contain, cover, or stretch.'),
@@ -448,6 +452,32 @@ const topicHelpEntries: HelpEntry[] = [
     summary: 'The component catalog is optional source material, never a constraint: author any compatible Revideo TypeScript, GLSL, SVG, procedural, or Three.js behavior in the production.',
     workflow: ['Use a rig unchanged only when it already matches the shot.', 'Otherwise restyle, combine, copy and rewrite, or ignore it.', 'Create new helpers directly in the scaffold whenever one-off behavior is stronger.', 'Validate custom work with the same render and visual-review gate.'],
     pitfalls: ['Do not choose a near-matching component merely because it appears in search.', 'Do not assume sourceExports are mandatory.', 'Do not let examples become a repeated house style.'],
+  },
+  {
+    kind: 'topic', id: 'revideo-scene-tree', title: 'Revideo 0.11 Scene-Tree Safety',
+    summary: 'Prevent silent black or missing layers when JSX refs exist but nested Fragment/array results from map() were never attached to the Revideo visual tree.',
+    sourceExports: ['flattenSceneNodes', 'mapSceneNodes', 'addSceneNodes', 'assertSceneNodeMounted', 'assertSceneNodesMounted'],
+    workflow: [
+      'Prefer one direct JSX node per map() result.',
+      'When one item intentionally creates multiple nodes, use mapSceneNodes() or flattenSceneNodes() from scene-tree.ts before insertion.',
+      'Use addSceneNodes() for imperative view/parent insertion.',
+      'Use assertSceneNodeMounted() while debugging a custom ref; a non-null ref is not proof that the node is rendered.',
+      'Let render_advanced_video preflight the complete local TSX project before Chromium starts.',
+    ],
+    example: `// Unsafe in Revideo 0.11: map() returns an array through Fragment.\nview.add(<>{items.map(item => <><Rect /><Txt text={item} /></>)}</>);\n\n// Safe: recursively flatten before insertion.\naddSceneNodes(view, mapSceneNodes(items, item => <><Rect /><Txt text={item} /></>));\n\n// Also safe when the nodes do not need to be paired.\nview.add(<>{items.map(item => <Rect />)}{items.map(item => <Txt text={item} />)}</>);`,
+    pitfalls: [
+      'Revideo 0.11 JSX flattens only one child-array level; Node.insert ignores inner arrays instead of throwing.',
+      'Refs may exist and report opacity/position correctly even while their nodes have parent() === null.',
+      'Child opacity cannot override an invisible ancestor: parent opacity 0 multiplied by child opacity 1 is still invisible.',
+      'Do not “fix” detached nodes with zIndex or opacity; mount the collection correctly.',
+    ],
+    validation: [
+      'Preflight returns valid=true before renderer startup.',
+      'Every animated scene root has parent() !== null after insertion.',
+      'Every ancestor intended to be visible has nonzero opacity during the shot.',
+      'Dense review frames show both outgoing and incoming settled states, not only headers or background.',
+    ],
+    related: ['tool:render_advanced_video', 'topic:visual-review', 'topic:transitions'],
   },
   {
     kind: 'topic', id: 'visual-review', title: 'Visual Review Gate',
