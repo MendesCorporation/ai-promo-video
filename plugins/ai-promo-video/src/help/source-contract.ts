@@ -6,6 +6,7 @@ import type { HelpEntry } from './catalog.js';
 const templateDirectory = fileURLToPath(new URL('../../assets/revideo-template/', import.meta.url));
 const templateFiles = [
   'motion-library.tsx',
+  'paint.ts',
   'scene-tree.ts',
   'kinetic.ts',
   'captions.tsx',

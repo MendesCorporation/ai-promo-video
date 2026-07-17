@@ -43,10 +43,10 @@ const referenceNames = [
 
 const server = new McpServer({
   name: 'ai-promo-video',
-  version: '0.6.3',
+  version: '0.6.4',
 }, {
   capabilities: { logging: {} },
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, and clean the delivery output. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, then clean generated reviews, previews, caches, and intermediate renders across the production while preserving editable source and every required render input. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
 });
 
 function response(value: unknown) {
@@ -572,12 +572,18 @@ server.registerTool('replace_video_range', {
 
 server.registerTool('clean_delivery_output', {
   title: 'Clean Final Delivery Output',
-  description: 'Safely remove renderer fragments, previews, obsolete finals, and temporary review packs from one delivery directory after verifying that every named final deliverable exists. Source media and files outside the delivery directory are untouched.',
+  description: 'After verifying every named final deliverable, clean the delivery directory and optionally remove generated review packs, render intermediates, previews, caches, and declared temporary paths across one production project. Editable source, public assets, captures, licensed media, references, attribution, and other render inputs remain protected.',
   inputSchema: {
     outputDir: z.string().min(1),
     keepFiles: z.array(z.string().min(1)).min(1).max(20),
+    projectDir: z.string().min(1).optional(),
+    temporaryPaths: z.array(z.string().min(1)).max(200).optional(),
   },
-}, async ({ outputDir, keepFiles }) => response(await cleanDeliveryOutput(outputDir, keepFiles)));
+}, async ({ outputDir, keepFiles, projectDir, temporaryPaths }) => response(await cleanDeliveryOutput(
+  outputDir,
+  keepFiles,
+  {projectDir, temporaryPaths},
+)));
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

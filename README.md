@@ -35,7 +35,7 @@ Recording an application is only raw material. A strong promo also needs a story
 This project separates that problem into two parts:
 
 - **The Skill is the director.** It teaches the AI how to turn a brief into a distinct story and art direction, choose what to capture, discover motion components without treating them as templates, compare music without a default track, and review its own work.
-- **The MCP server is the production crew.** It provides progressive contextual help plus deterministic operations for navigating the product, recording it, searching the motion library and free media, analyzing music, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning the delivery directory.
+- **The MCP server is the production crew.** It provides progressive contextual help plus deterministic operations for navigating the product, recording it, searching the motion library and free media, analyzing music, writing scenes, rendering, editing, extracting review frames, replacing only a damaged interval, and cleaning disposable artifacts across the finished production.
 
 No AI model is bundled with the project. Codex, Claude, or Cursor uses the model already selected by the user. For clients that do not discover filesystem Skills, the MCP server exposes the same directing guide through a prompt and resources.
 
@@ -52,7 +52,7 @@ When a user asks for “a 30-second promo for this SaaS,” the AI follows this 
 7. Renders H.264/AAC video at 24–60 FPS and up to 4K.
 8. Extracts frames from the full film and around every transition so the AI can inspect its own output.
 9. Fixes visual anomalies, timing, typography, camera motion, or composition. If a problem is isolated, it rerenders and replaces only that interval.
-10. Keeps only the editable project, credits, and approved MP4 in the delivery directory.
+10. Keeps only the editable project, required render inputs, credits, and approved deliverables; generated reviews, previews, caches, and intermediate renders are removed across the production.
 
 The AI gains autonomy without turning generation into a black box: the scene remains readable code, media retains attribution manifests, and every render can be reproduced.
 
@@ -210,7 +210,7 @@ The AI can read the existing source, edit only the affected scene or interval, r
 - Footage search through Wikimedia Commons and, optionally, Pexels.
 - Image and asset search through Openverse, Wikimedia Commons, and, optionally, Pexels.
 - Openverse and Wikimedia require no API key. Pexels is free but requires `PEXELS_API_KEY`.
-- Images, SVG, vector paths, masks, gradients, filters, shaders, particles, Three.js, and video clips inside the same composition.
+- Images, SVG, vector paths, masks, native Revideo linear/radial gradients, filters, shaders, particles, Three.js, and video clips inside the same composition. The scaffold includes `paint.ts` helpers for native coordinates and CSS-angle conversion; preflight rejects unsupported CSS `linear-gradient(...)`/`radial-gradient(...)` paint strings with contextual help before Chromium starts.
 - Native landscape, portrait, and square composition profiles with adaptive stages, focal product crops, and editable safe-area defaults for TikTok, Instagram Reels, and YouTube Shorts. Vertical output is recomposed rather than produced by shrinking a landscape scene.
 - A searchable motion vocabulary spanning backgrounds, formats, layouts, captions, typography, product presentation, shapes, transitions, camera, cursors, particles, and effects; every item can be restyled, combined, or replaced with custom TypeScript.
 - Ten executable transition rigs and seven executable camera rigs live in `transitions.ts` and `camera.ts`, with typed controls for vectors, overlap, blur, depth, curves, targets, bounds, perspective, deterministic seeds, and timing. They are editable starting points—not templates or constraints—and the AI may ignore them, rewrite them, combine them, or author an entirely original Revideo, SVG, GLSL, or Three.js system.
@@ -274,6 +274,9 @@ node plugins/ai-promo-video/dist/cli.js video:replace-range ./replace.json
 # Inspect and review the output visually
 node plugins/ai-promo-video/dist/cli.js probe ./output/promo.mp4
 node plugins/ai-promo-video/dist/cli.js review ./output/promo.mp4 --output-dir ./review --times 2,8,14,20,27,29
+
+# Keep accepted finals and remove disposable artifacts across this production
+node plugins/ai-promo-video/dist/cli.js clean ./delivery --keep promo.mp4,credits.json --project-dir . --temporary-paths official-promo-frames,custom-audit
 ```
 
 `image:edit` and `video:edit` accept JSON instructions. Credentials belong only in gitignored `*.local.json` files.

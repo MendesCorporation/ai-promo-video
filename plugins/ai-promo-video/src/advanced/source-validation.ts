@@ -1,11 +1,13 @@
 import {readFileSync} from 'node:fs';
 import {readFile, readdir} from 'node:fs/promises';
 import {basename, dirname, extname, join, relative, resolve} from 'node:path';
+import ts from 'typescript';
 import {AdvancedDiagnosticError, createCodeFrame, type AdvancedFailureReport} from './diagnostics.js';
 
 export type AdvancedSourceIssueCode =
   | 'REV011_NESTED_JSX_FRAGMENT_MAP'
-  | 'REV011_NESTED_JSX_ARRAY_MAP';
+  | 'REV011_NESTED_JSX_ARRAY_MAP'
+  | 'REV011_CSS_GRADIENT_PAINT';
 
 export interface AdvancedSourceIssue {
   code: AdvancedSourceIssueCode;
@@ -15,7 +17,7 @@ export interface AdvancedSourceIssue {
   column: number;
   message: string;
   suggestion: string;
-  helpTarget: 'topic:revideo-scene-tree';
+  helpTarget: 'topic:revideo-scene-tree' | 'topic:revideo-gradients';
 }
 
 export interface AdvancedSourceValidationResult {
@@ -202,6 +204,24 @@ export function validateRevideoSceneSource(source: string, file = 'scene.tsx'): 
       helpTarget: 'topic:revideo-scene-tree',
     });
   }
+
+  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteralLike(node) && /(?:linear|radial)-gradient\s*\(/i.test(node.text)) {
+      const location = locationAt(source, node.getStart(sourceFile));
+      issues.push({
+        code: 'REV011_CSS_GRADIENT_PAINT',
+        severity: 'error',
+        file,
+        ...location,
+        message: 'Revideo fill/stroke paint signals do not parse CSS linear-gradient(...) or radial-gradient(...) strings; they require a native Gradient object.',
+        suggestion: "Use new Gradient({type, from, to, stops}) from '@revideo/2d', or use linearGradient(), cssAngleLinearGradient(), or radialGradient() from the scaffold paint.ts helper.",
+        helpTarget: 'topic:revideo-gradients',
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
 
   return issues;
 }

@@ -34,6 +34,7 @@ Commands:
   probe <video.mp4>
   review <video.mp4> --output-dir <dir> --times 2,8,15
   review:auto <video.mp4> --output-dir <dir> [--interval 2 --transitions 4.5,8,13 --window 1 --fps 4]
+  clean <delivery-dir> --keep final.mp4[,credits.json] [--project-dir <dir> --temporary-paths path,path]
 `;
 
 function parse(argv: string[]): { command?: string; args: string[]; flags: Record<string, string | boolean> } {

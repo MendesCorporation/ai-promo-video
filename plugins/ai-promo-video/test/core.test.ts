@@ -195,6 +195,7 @@ describe('advanced project source', () => {
     const source = await readFile(project.sceneFile, 'utf8');
     const kinetic = await readFile(join(directory, 'kinetic.ts'), 'utf8');
     const librarySource = await readFile(join(directory, 'motion-library.tsx'), 'utf8');
+    const paintSource = await readFile(join(directory, 'paint.ts'), 'utf8');
     const captionSource = await readFile(join(directory, 'captions.tsx'), 'utf8');
     const formatSource = await readFile(join(directory, 'format.tsx'), 'utf8');
     const proceduralSource = await readFile(join(directory, 'procedural.tsx'), 'utf8');
@@ -226,6 +227,9 @@ describe('advanced project source', () => {
     expect(librarySource).toContain('export function ProductFrame');
     expect(librarySource).toContain('export function cameraMove');
     expect(librarySource).toContain('export function SpecularTextStack');
+    expect(paintSource).toContain('export function linearGradient');
+    expect(paintSource).toContain('export function cssAngleLinearGradient');
+    expect(paintSource).toContain('export function radialGradient');
     expect(captionSource).toContain('export function* playWordFollowCaption');
     expect(formatSource).toContain('export function PortraitProductStage');
     expect(proceduralSource).toContain('export function FlowField');
@@ -260,7 +264,7 @@ describe('advanced project source', () => {
     expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'procedural.tsx', 'project.tsx', 'scene-tree.ts', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
+    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'paint.ts', 'procedural.tsx', 'project.tsx', 'scene-tree.ts', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
     await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
   });
@@ -292,6 +296,40 @@ describe('advanced project source', () => {
     expect(validation).toMatchObject({valid: false, filesChecked: ['project.tsx', 'scene.tsx']});
     expect(validation.issues[0]).toMatchObject({file: 'scene.tsx', line: 2});
     await expect(renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')})).rejects.toThrow(/REV011_NESTED_JSX_FRAGMENT_MAP/);
+  });
+
+  it('blocks CSS gradient strings before renderer startup and points to native gradient help', async () => {
+    const cssGradient = `const fade = 'linear-gradient(180deg, #00182500 45%, #001825b8 100%)';\nview.add(<Rect fill={fade} />);`;
+    const issue = validateRevideoSceneSource(cssGradient)[0];
+    expect(issue).toMatchObject({
+      code: 'REV011_CSS_GRADIENT_PAINT',
+      line: 1,
+      helpTarget: 'topic:revideo-gradients',
+    });
+    expect(issue.suggestion).toContain('cssAngleLinearGradient');
+    expect(validateRevideoSceneSource(`// linear-gradient(180deg, red, blue)\nconst color = '#ffffff';`)).toEqual([]);
+
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-css-gradient-preflight-'));
+    const projectFile = join(directory, 'project.tsx');
+    await writeFile(projectFile, 'export default {};\n');
+    await writeFile(join(directory, 'scene.tsx'), `${cssGradient}\n`);
+    try {
+      await renderAdvancedProject({projectFile, output: join(directory, 'should-not-render.mp4')});
+      throw new Error('Expected CSS gradient preflight to fail');
+    } catch (error) {
+      const report = serializeAdvancedError(error);
+      expect(report).toMatchObject({
+        ok: false,
+        phase: 'preflight',
+        diagnostics: [{
+          code: 'REV011_CSS_GRADIENT_PAINT',
+          relativeFile: 'scene.tsx',
+          line: 1,
+          helpTarget: 'topic:revideo-gradients',
+        }],
+      });
+      expect(report.diagnostics[0].codeFrame).toContain('linear-gradient');
+    }
   });
 
   it('accepts bundler asset modules in the TypeScript preflight on every platform', async () => {
@@ -459,6 +497,18 @@ describe('progressive contextual help', () => {
     expect(detailed.help.sourceContracts.every((contract) => contract.sourceFile === 'scene-tree.ts')).toBe(true);
   });
 
+  it('documents native Revideo gradients through exact contextual help', async () => {
+    const compact = getContextualHelp({query: 'CSS linear gradient fill', limit: 4}) as {results: Array<{target: string}>};
+    expect(compact.results.map((entry) => entry.target)).toContain('topic:revideo-gradients');
+    const detailed = await attachSourceContracts(getContextualHelp({target: 'topic:revideo-gradients'})) as {
+      help: {example: string; pitfalls: string[]; sourceContracts: Array<{sourceFile: string; exportName: string}>};
+    };
+    expect(detailed.help.example).toContain('offset: 0.45');
+    expect(detailed.help.pitfalls.join(' ')).toContain('CSS gradient string');
+    expect(detailed.help.sourceContracts).toHaveLength(3);
+    expect(detailed.help.sourceContracts.every((contract) => contract.sourceFile === 'paint.ts')).toBe(true);
+  });
+
   it('documents every MCP tool registered by the server', async () => {
     const serverSource = await readFile(new URL('../src/mcp/server.ts', import.meta.url), 'utf8');
     const registered = [...serverSource.matchAll(/server\.registerTool\('([^']+)'/g)].map((match) => match[1]).sort();
@@ -606,6 +656,78 @@ describe('delivery cleanup', () => {
     expect(result).toMatchObject({ kept: ['final.mp4'], removed: ['review', 'silent.mp4'] });
     await expect(access(join(directory, 'final.mp4'))).resolves.toBeUndefined();
     await expect(access(join(directory, 'silent.mp4'))).rejects.toThrow();
+  });
+
+  it('removes disposable artifacts across one production while preserving render inputs', async () => {
+    const project = await mkdtemp(join(tmpdir(), 'ai-promo-project-cleanup-'));
+    const delivery = join(project, 'delivery');
+    await mkdir(delivery);
+    await writeFile(join(delivery, 'final.mp4'), 'final');
+    await writeFile(join(delivery, 'obsolete.mp4'), 'temporary');
+    await writeFile(join(project, 'project.tsx'), 'editable source');
+    await writeFile(join(project, '.DS_Store'), 'generated');
+
+    for (const directory of ['.playwright-cli', '.vite', 'audit-v1', 'custom-checks', 'diagnostics', 'output', 'playwright-report', 'renders', 'review-v2', 'source-review', 'test-results']) {
+      await mkdir(join(project, directory), {recursive: true});
+      await writeFile(join(project, directory, directory === 'diagnostics' ? 'review-manifest.json' : 'artifact.txt'), 'generated');
+    }
+    for (const directory of ['captures', 'media', 'public', 'reference']) {
+      await mkdir(join(project, directory), {recursive: true});
+      await writeFile(join(project, directory, 'required.txt'), 'render input');
+    }
+
+    const result = await cleanDeliveryOutput(delivery, ['final.mp4'], {
+      projectDir: project,
+      temporaryPaths: ['custom-checks'],
+    });
+
+    expect(result).toMatchObject({
+      kept: ['final.mp4'],
+      removed: ['obsolete.mp4'],
+      removedProjectArtifacts: [
+        '.DS_Store',
+        '.playwright-cli',
+        '.vite',
+        'audit-v1',
+        'custom-checks',
+        'diagnostics',
+        'output',
+        'playwright-report',
+        'renders',
+        'review-v2',
+        'source-review',
+        'test-results',
+      ],
+    });
+    await expect(access(join(delivery, 'final.mp4'))).resolves.toBeUndefined();
+    await expect(access(join(project, 'project.tsx'))).resolves.toBeUndefined();
+    for (const directory of ['captures', 'media', 'public', 'reference']) {
+      await expect(access(join(project, directory, 'required.txt'))).resolves.toBeUndefined();
+    }
+    for (const directory of ['.playwright-cli', '.vite', 'audit-v1', 'custom-checks', 'diagnostics', 'output', 'playwright-report', 'renders', 'review-v2', 'source-review', 'test-results']) {
+      await expect(access(join(project, directory))).rejects.toThrow();
+    }
+  });
+
+  it('verifies finals and refuses protected temporary paths before deleting anything', async () => {
+    const project = await mkdtemp(join(tmpdir(), 'ai-promo-project-cleanup-safety-'));
+    const delivery = join(project, 'delivery');
+    await mkdir(delivery);
+    await mkdir(join(project, 'review-v1'));
+    await mkdir(join(project, 'public'));
+    await writeFile(join(project, 'review-v1', 'overview.png'), 'generated');
+    await writeFile(join(project, 'public', 'product.png'), 'required');
+
+    await expect(cleanDeliveryOutput(delivery, ['missing.mp4'], {projectDir: project})).rejects.toThrow();
+    await expect(access(join(project, 'review-v1', 'overview.png'))).resolves.toBeUndefined();
+
+    await writeFile(join(delivery, 'final.mp4'), 'final');
+    await expect(cleanDeliveryOutput(delivery, ['final.mp4'], {
+      projectDir: project,
+      temporaryPaths: ['public'],
+    })).rejects.toThrow('protected render input');
+    await expect(access(join(project, 'review-v1', 'overview.png'))).resolves.toBeUndefined();
+    await expect(access(join(project, 'public', 'product.png'))).resolves.toBeUndefined();
   });
 });
 

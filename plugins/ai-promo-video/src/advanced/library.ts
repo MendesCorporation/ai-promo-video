@@ -212,6 +212,7 @@ export const motionLibrarySummary = {
   categories: motionComponentCategories,
   sourceFiles: {
     components: 'motion-library.tsx',
+    paint: 'paint.ts',
     sceneTree: 'scene-tree.ts',
     typography: 'kinetic.ts',
     captions: 'captions.tsx',

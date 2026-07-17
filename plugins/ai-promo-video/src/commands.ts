@@ -12,6 +12,7 @@ import { motionComponentLibrary, searchMotionComponents, type MotionComponentCat
 import { platformTargets, videoFormatIds, videoFormatProfiles, type PlatformTarget, type VideoFormatId } from './advanced/formats.js';
 import { prepareCaptionTiming, reviewCaptionTiming } from './captions/timing.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from './media/edit.js';
+import { cleanDeliveryOutput } from './media/cleanup.js';
 import { downloadFreeAsset, downloadFreeVideo, searchFreeAssets, searchFreeVideos, type AssetSearchProvider, type VideoSearchProvider } from './library/search.js';
 import type { MediaOrientation } from './types.js';
 import { CaptureSpecSchema, VideoSpecSchema } from './types.js';
@@ -253,6 +254,14 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         transitionTimes,
         transitionWindow: typeof flags.window === 'string' ? Number(flags.window) : undefined,
         transitionFps: typeof flags.fps === 'string' ? Number(flags.fps) : undefined,
+      });
+    }
+    case 'clean': {
+      if (!args[0]) throw new Error('Usage: ai-promo clean <delivery-dir> --keep final.mp4 [--project-dir <dir> --temporary-paths path,path]');
+      const keepFiles = typeof flags.keep === 'string' ? flags.keep.split(',').filter(Boolean) : [];
+      return cleanDeliveryOutput(args[0], keepFiles, {
+        projectDir: typeof flags['project-dir'] === 'string' ? flags['project-dir'] : undefined,
+        temporaryPaths: typeof flags['temporary-paths'] === 'string' ? flags['temporary-paths'].split(',').filter(Boolean) : undefined,
       });
     }
     default:

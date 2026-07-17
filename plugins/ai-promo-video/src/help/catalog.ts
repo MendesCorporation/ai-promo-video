@@ -257,9 +257,16 @@ export const toolHelpEntries: HelpEntry[] = [
   tool('replace_video_range', 'Replace Final Video Range', 'Replace one exact interval in a final MP4 with a separately reviewed replacement.', {
     original: parameter('path string', 'Accepted base MP4.', {required: true}), replacement: parameter('path string', 'Reviewed replacement interval.', {required: true}), output: parameter('MP4 path string', 'New final.', {required: true}), start: parameter('number', 'Range start.', {required: true, accepted: '>= 0'}), end: parameter('number', 'Range end.', {required: true, accepted: '> start'}),
   }, {prerequisites: ['Replacement duration and boundaries must match the intended timeline.', 'Review the changed range before replacement.']}),
-  tool('clean_delivery_output', 'Clean Final Delivery Output', 'Remove temporary render debris only after all named final deliverables exist.', {
-    outputDir: parameter('path string', 'Delivery-only directory.', {required: true}), keepFiles: parameter('string[]', 'Exact final filenames to preserve.', {required: true, accepted: '1..20'}),
-  }, {pitfalls: ['Never point this at source, capture, licensed-media, or user-input directories.']}),
+  tool('clean_delivery_output', 'Clean Final Delivery Output', 'Verify accepted finals, reduce the delivery directory to those files, and remove disposable production artifacts from the wider project.', {
+    outputDir: parameter('path string', 'Delivery-only directory.', {required: true}),
+    keepFiles: parameter('string[]', 'Exact final filenames to preserve.', {required: true, accepted: '1..20'}),
+    projectDir: parameter('path string', 'Exact root of this one editable production. When supplied, known review, audit, preview, render-intermediate, Vite-cache, and temporary directories are removed recursively.'),
+    temporaryPaths: parameter('string[]', 'Additional project-relative files or directories created only for this production review/render cycle.', {accepted: '0..200', constraints: ['Requires projectDir.', 'Never include source, public, assets, media, music, video, capture, reference, license, attribution, font, node_modules, or delivery paths.']}),
+  }, {
+    workflow: ['Track every nonstandard review, audit, preview, and intermediate-render path as it is created.', 'Pass the exact projectDir and those relative paths after the final probe and visual approval.', 'Verify the result reports the expected kept finals and removedProjectArtifacts.', 'Confirm the editable composition, render inputs, licenses, and attribution remain.'],
+    pitfalls: ['Never point projectDir at a parent containing multiple unrelated productions.', 'Do not list user-provided or irreplaceable inputs as temporaryPaths.', 'Without projectDir, cleanup remains limited to the delivery directory for backward compatibility.'],
+    validation: ['Every keepFiles entry existed before any deletion began.', 'The delivery directory contains only the named finals.', 'No disposable review, audit, preview, render-intermediate, or cache directory remains in the production root.', 'Source code, public assets, captures, selected media, licenses, attribution, and references remain available for a later rerender.'],
+  }),
 ];
 
 const liquidGlassTextParameters: Record<string, HelpParameter> = {
@@ -480,6 +487,32 @@ const topicHelpEntries: HelpEntry[] = [
       'Dense review frames show both outgoing and incoming settled states, not only headers or background.',
     ],
     related: ['tool:render_advanced_video', 'topic:visual-review', 'topic:transitions'],
+  },
+  {
+    kind: 'topic', id: 'revideo-gradients', title: 'Native Revideo Gradient Paints',
+    summary: 'Translate CSS gradient intent into Revideo Gradient geometry; fill and stroke do not accept CSS linear-gradient(...) or radial-gradient(...) strings.',
+    sourceExports: ['linearGradient', 'cssAngleLinearGradient', 'radialGradient'],
+    tags: ['gradient', 'paint', 'fill', 'stroke', 'linear-gradient', 'radial-gradient', 'css'],
+    workflow: [
+      'Choose linear or radial geometry in the painted node local coordinate system.',
+      'Convert every percentage stop to a normalized offset from 0 to 1.',
+      'Use #RRGGBBAA colors when alpha is required; alpha belongs on each native stop.',
+      'For CSS angle semantics, pass the actual painted width and height to cssAngleLinearGradient().',
+      'Pass the returned Gradient object to fill or stroke and reuse that object when animating its signals.',
+    ],
+    example: `import {cssAngleLinearGradient} from './paint';\n\nconst lowerFade = cssAngleLinearGradient({\n  width: 1920,\n  height: 1080,\n  angleDegrees: 180,\n  stops: [\n    {offset: 0.45, color: '#00182500'},\n    {offset: 1, color: '#001825b8'},\n  ],\n});\n\nview.add(<Rect width={1920} height={1080} fill={lowerFade} />);`,
+    pitfalls: [
+      'Never assign a CSS gradient string directly to a Revideo fill or stroke signal.',
+      'Do not copy CSS percentages as 45 or 100; native offsets are 0.45 and 1.',
+      'Gradient coordinates are local to the painted node, not page coordinates.',
+      'Creating a new Gradient on every reactive evaluation loses stable signals; construct it once and animate its from, to, or stops.',
+    ],
+    validation: [
+      'Source preflight reports no REV011_CSS_GRADIENT_PAINT diagnostic.',
+      'A one-frame render shows the intended direction and alpha fade.',
+      'The gradient fully covers the target bounds without an unintended hard edge.',
+    ],
+    related: ['tool:render_advanced_video', 'topic:visual-review', 'component:gradient-sweep-text'],
   },
   {
     kind: 'topic', id: 'visual-review', title: 'Visual Review Gate',
