@@ -184,11 +184,11 @@ export async function editVideo(value: VideoEditOptions): Promise<{ outputPath: 
 
   await mkdir(dirname(outputPath), { recursive: true });
   const args = ['-y', '-ss', String(start), '-to', String(end), '-i', inputPath, '-map', '0:v:0'];
-  if (!options.mute && input.hasAudio) args.push('-map', '0:a:0');
+  if (!options.mute && input.hasAudioStream) args.push('-map', '0:a:0');
   if (videoFilters.length) args.push('-vf', videoFilters.join(','));
-  if (!options.mute && input.hasAudio && audioFilters.length) args.push('-af', audioFilters.join(','));
+  if (!options.mute && input.hasAudioStream && audioFilters.length) args.push('-af', audioFilters.join(','));
   args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p');
-  if (!options.mute && input.hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
+  if (!options.mute && input.hasAudioStream) args.push('-c:a', 'aac', '-b:a', '192k');
   else args.push('-an');
   args.push('-movflags', '+faststart', outputPath);
   await runCommand(ffmpegPath(), args, { quiet: true });
@@ -206,7 +206,7 @@ export async function replaceVideoRange(value: ReplaceVideoRangeOptions): Promis
   if (Math.abs(replacement.duration - patchDuration) > 0.12) {
     throw new Error(`Replacement is ${replacement.duration}s but selected range is ${patchDuration}s; render an exact advanced range first`);
   }
-  if (original.hasAudio !== replacement.hasAudio) throw new Error('Original and replacement must either both contain audio or both be silent');
+  if (original.hasAudioStream !== replacement.hasAudioStream) throw new Error('Original and replacement must either both contain an audio stream or both omit it');
   if (!original.width || !original.height || !original.fps) throw new Error('Could not determine the original video dimensions or frame rate');
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -216,7 +216,7 @@ export async function replaceVideoRange(value: ReplaceVideoRangeOptions): Promis
     `[0:v]trim=start=${options.end}:end=${original.duration},setpts=PTS-STARTPTS[v2]`,
   ];
   const args = ['-y', '-i', originalPath, '-i', replacementPath];
-  if (original.hasAudio) {
+  if (original.hasAudioStream) {
     const audioParts = [
       `[0:a]atrim=start=0:end=${options.start},asetpts=PTS-STARTPTS[a0]`,
       `[1:a]atrim=start=0:end=${patchDuration},asetpts=PTS-STARTPTS[a1]`,
@@ -227,7 +227,7 @@ export async function replaceVideoRange(value: ReplaceVideoRangeOptions): Promis
     args.push('-filter_complex', [...videoParts, '[v0][v1][v2]concat=n=3:v=1:a=0[v]'].join(';'), '-map', '[v]');
   }
   args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p');
-  if (original.hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
+  if (original.hasAudioStream) args.push('-c:a', 'aac', '-b:a', '192k');
   args.push('-movflags', '+faststart', outputPath);
   await runCommand(ffmpegPath(), args, { quiet: true });
   return { outputPath, duration: original.duration, replaced: [options.start, options.end] };
@@ -249,7 +249,7 @@ export async function mixMusic(value: MixMusicOptions): Promise<{ outputPath: st
   const filters = [musicFilter];
   let audioMap = '[music]';
 
-  if (options.preserveOriginalAudio && input.hasAudio) {
+  if (options.preserveOriginalAudio && input.hasAudioStream) {
     filters.push(`[0:a]atrim=duration=${number(input.duration)},asetpts=PTS-STARTPTS,volume=${number(options.originalVolume)}[original]`);
     filters.push('[original][music]amix=inputs=2:duration=first:dropout_transition=0[audio]');
     audioMap = '[audio]';
@@ -261,5 +261,5 @@ export async function mixMusic(value: MixMusicOptions): Promise<{ outputPath: st
   if (options.sourceOffset > 0) args.push('-ss', number(options.sourceOffset));
   args.push('-i', musicPath, '-filter_complex', filters.join(';'), '-map', '0:v:0', '-map', audioMap, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-t', number(input.duration), '-movflags', '+faststart', outputPath);
   await runCommand(ffmpegPath(), args, { quiet: true });
-  return { outputPath, duration: input.duration, envelope: options.envelope, preservedOriginalAudio: options.preserveOriginalAudio && input.hasAudio };
+  return { outputPath, duration: input.duration, envelope: options.envelope, preservedOriginalAudio: options.preserveOriginalAudio && input.hasAudioStream };
 }

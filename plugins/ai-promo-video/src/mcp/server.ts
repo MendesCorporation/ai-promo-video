@@ -9,15 +9,16 @@ import { z } from 'zod';
 import { generateAudioLibrary } from '../audio/generate-library.js';
 import { listAudioTracks } from '../audio/catalog.js';
 import { analyzeMusic } from '../audio/analyze.js';
-import { downloadOpenverseMusic, searchOpenverseMusic } from '../audio/openverse.js';
-import { searchLocalMusic } from '../audio/search.js';
+import { downloadOpenverseMusic } from '../audio/openverse.js';
+import { searchMusic } from '../audio/search.js';
 import { captureFromSpecFile, inspectSite, recordFromSpecFile } from '../capture/capture.js';
 import { createVisualReviewPack, extractReviewFrames, probeVideo } from '../render/probe.js';
 import { renderFromSpecFile } from '../render/renderer.js';
 import { validateSpec } from '../commands.js';
-import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, saveAdvancedProjectFile, scaffoldAdvancedProject } from '../advanced/engine.js';
+import { addAdvancedVideoHelpers, advancedVideoHelperIds, listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, saveAdvancedProjectFile, scaffoldAdvancedProject } from '../advanced/engine.js';
 import { motionComponentCategories, motionComponentLibrary, motionLibrarySummary, searchMotionComponents } from '../advanced/library.js';
 import { platformTargets, resolveVideoFormat, videoFormatIds, videoFormatProfiles } from '../advanced/formats.js';
+import { validateMotionPlan } from '../advanced/motion-plan.js';
 import { prepareCaptionTiming, reviewCaptionTiming } from '../captions/timing.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from '../media/edit.js';
 import { cleanDeliveryOutput } from '../media/cleanup.js';
@@ -46,7 +47,7 @@ const server = new McpServer({
   version: '0.6.4',
 }, {
   capabilities: { logging: {} },
-  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every new production uses one Revideo composition: search the motion component library, combine only story-relevant primitives, and author custom TypeScript in the same scene whenever needed. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent and compare candidates. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create and inspect a visual review pack, correct material anomalies, probe again, then clean generated reviews, previews, caches, and intermediate renders across the production while preserving editable source and every required render input. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
+  instructions: 'Create professional, custom motion-design films rather than raw screen recordings or slide decks. Every short production uses one master Revideo engine scene with modular logical shots: scaffold the minimal project, search the motion component library, add only the selected source groups with add_advanced_video_helpers, combine only story-relevant primitives, and author custom TypeScript in the same composition whenever needed. Complete motion-plan.json before authoring; declare every non-final boundary as continuous, motivated-cut, or intentional-stop; call validate_motion_plan before the first render; preserve focal velocity through multi-beat moves unless stillness is intentional; and register critical refs for render-only overflow, collision, and optical-centering review. Compose portrait and square formats intentionally instead of shrinking 16:9 scenes. When speech captions are requested, prepare timing, distinguish exact timestamps from interpolation, respect platform safe areas, and review settled caption frames. probe_video distinguishes audible hasAudio from technical hasAudioStream and audioIsSilent. The JSON renderer is legacy compatibility, never a draft template for a new production. Do not select bundled music by default; search by explicit musical intent, prioritize Freesound through Openverse, and compare candidates from multiple licensed sources. Aggregate Pexels, Pixabay, Openverse, Wikimedia, and approved local media for footage and assets when available. Use the help tool only at the point of uncertainty: search compactly, then request one exact tool, component, transition, or topic for parameter values, constraints, examples, pitfalls, and validation. Before delivery: preserve license metadata, create the visual review pack with the project, motion plan, and render variables; inspect every exact evidence and settle frame plus every overview/transition sheet; classify candidates as intentional or material; correct material anomalies; probe again; then call clean_delivery_output with independent projectDir/outputDir. External outputs default to shared and never lose sibling files; owned is only for dedicated delivery directories. For the complete workflow, read ai-promo://director-guide, invoke the create-ai-promo-video prompt, or call load_director_guide when the client exposes only MCP tools.',
 });
 
 function response(value: unknown) {
@@ -165,10 +166,10 @@ server.registerTool('generate_music_library', {
 
 server.registerTool('search_music', {
   title: 'Search Free Music',
-  description: 'Search user-selected local folders and Openverse for music with commercial-friendly CC0, public-domain, or CC BY licenses. Bundled tracks are excluded unless explicitly requested; result order is not a recommendation.',
+  description: 'Search licensed music across Freesound first, then user-approved local folders, Jamendo, and Wikimedia Audio through the Openverse catalog. Bundled tracks are excluded unless explicitly requested; every result retains its source and license metadata.',
   inputSchema: {
     query: z.string().optional(),
-    provider: z.enum(['all', 'local', 'bundled', 'openverse']).default('all'),
+    provider: z.enum(['all', 'local', 'bundled', 'freesound', 'jamendo', 'wikimedia_audio', 'openverse']).default('all'),
     localDirectories: z.array(z.string()).optional(),
     includeBundled: z.boolean().default(false),
     source: z.string().optional(),
@@ -176,16 +177,7 @@ server.registerTool('search_music', {
     maxDuration: z.number().positive().optional(),
     allowUnknownLocalLicense: z.boolean().default(false),
   },
-}, async ({ query, provider, localDirectories, includeBundled, source, minDuration, maxDuration, allowUnknownLocalLicense }) => {
-  const results = [];
-  if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories: localDirectories, includeBundled, minDuration, maxDuration, allowUnknownLicense: allowUnknownLocalLicense }));
-  if (provider === 'bundled') results.push(...await searchLocalMusic({ query, includeBundled: true, minDuration, maxDuration }));
-  if (provider === 'all' || provider === 'openverse') {
-    if (!query) throw new Error('Openverse search requires a query');
-    results.push(...await searchOpenverseMusic({ query, source, minDuration, maxDuration }));
-  }
-  return response(results);
-});
+}, async (options) => response(await searchMusic(options)));
 
 server.registerTool('download_music', {
   title: 'Download Licensed Music',
@@ -207,10 +199,10 @@ server.registerTool('analyze_music', {
 
 server.registerTool('search_free_videos', {
   title: 'Search Free Video Footage',
-  description: 'Search user-approved local folders, keyless Wikimedia Commons, and optional free-key Pexels stock footage. Returns dimensions, duration, previews, source pages, and license obligations; no paid media provider is used.',
+  description: 'Search user-approved local folders plus optional free-key Pexels and Pixabay footage, then keyless Wikimedia Commons. Returns dimensions, duration, previews, source pages, and license obligations; no paid media provider is used.',
   inputSchema: {
     query: z.string().optional(),
-    provider: z.enum(['all', 'local', 'wikimedia', 'pexels']).default('all'),
+    provider: z.enum(['all', 'local', 'pexels', 'pixabay', 'wikimedia']).default('all'),
     localDirectories: z.array(z.string()).optional(),
     orientation: z.enum(['landscape', 'portrait', 'square']).optional(),
     minDuration: z.number().nonnegative().optional(),
@@ -219,6 +211,7 @@ server.registerTool('search_free_videos', {
     minHeight: z.number().int().positive().optional(),
     pageSize: z.number().int().min(1).max(50).default(12),
     pexelsLocale: z.string().optional(),
+    pixabayLocale: z.string().optional(),
     includeShareAlike: z.boolean().default(false),
     allowUnknownLocalLicense: z.boolean().default(false),
   },
@@ -226,9 +219,9 @@ server.registerTool('search_free_videos', {
 
 server.registerTool('download_free_video', {
   title: 'Download Free Video Footage',
-  description: 'Download a selected Wikimedia Commons or Pexels video and write a sidecar plus credits.json with its source, license, attribution, and share-alike obligations. Pexels uses the free PEXELS_API_KEY environment variable.',
+  description: 'Download a selected Wikimedia Commons, Pexels, or Pixabay video and write a sidecar plus credits.json with its source, license, attribution, and share-alike obligations. Pexels and Pixabay use free API keys.',
   inputSchema: {
-    provider: z.enum(['wikimedia', 'pexels']),
+    provider: z.enum(['wikimedia', 'pexels', 'pixabay']),
     id: z.string().regex(/^\d+$/),
     outputDir: z.string().min(1),
     includeShareAlike: z.boolean().default(false),
@@ -237,10 +230,10 @@ server.registerTool('download_free_video', {
 
 server.registerTool('search_free_assets', {
   title: 'Search Free Visual Assets',
-  description: 'Search user-approved local folders, Openverse, Wikimedia Commons, and optional free-key Pexels photos for free images, SVGs, and animated GIF assets. Returns previews, dimensions, direct downloads, source pages, and machine-readable license obligations.',
+  description: 'Search user-approved local folders, optional free-key Pexels and Pixabay photos, Openverse, and Wikimedia Commons for free images, SVGs, and animated GIF assets. Returns previews, dimensions, direct downloads, source pages, and machine-readable license obligations.',
   inputSchema: {
     query: z.string().optional(),
-    provider: z.enum(['all', 'local', 'openverse', 'wikimedia', 'pexels']).default('all'),
+    provider: z.enum(['all', 'local', 'pexels', 'pixabay', 'openverse', 'wikimedia']).default('all'),
     localDirectories: z.array(z.string()).optional(),
     kind: z.enum(['all', 'image', 'svg', 'animation']).default('all'),
     orientation: z.enum(['landscape', 'portrait', 'square']).optional(),
@@ -249,6 +242,7 @@ server.registerTool('search_free_assets', {
     pageSize: z.number().int().min(1).max(50).default(12),
     openverseSource: z.string().optional(),
     pexelsLocale: z.string().optional(),
+    pixabayLocale: z.string().optional(),
     includeShareAlike: z.boolean().default(false),
     allowUnknownLocalLicense: z.boolean().default(false),
   },
@@ -256,9 +250,9 @@ server.registerTool('search_free_assets', {
 
 server.registerTool('download_free_asset', {
   title: 'Download Free Visual Asset',
-  description: 'Download a selected Openverse, Wikimedia Commons, or Pexels image/SVG/animation and write a sidecar plus credits.json with its source and license obligations.',
+  description: 'Download a selected Openverse, Wikimedia Commons, Pexels, or Pixabay image/SVG/animation and write a sidecar plus credits.json with its source and license obligations.',
   inputSchema: {
-    provider: z.enum(['openverse', 'wikimedia', 'pexels']),
+    provider: z.enum(['openverse', 'wikimedia', 'pexels', 'pixabay']),
     id: z.string().min(1),
     outputDir: z.string().min(1),
     includeShareAlike: z.boolean().default(false),
@@ -315,7 +309,7 @@ server.registerTool('extract_review_frames', {
 
 server.registerTool('create_visual_review_pack', {
   title: 'Create Mandatory Visual Review Pack',
-  description: 'Create dense overview sheets, frame strips around every declared transition, technical anomaly candidates, and a visual checklist. The host AI must view every generated sheet after a full render or changed range before delivery.',
+  description: 'Create overview sheets, exact declared settle frames, transition strips, source/motion lint, focal-motion continuity candidates, and—when projectFile is supplied—an isolated layout-audit render with exact annotated screenshots for registered overflow, collision, and centering candidates. The host AI must classify every candidate as intentional or material before delivery.',
   inputSchema: {
     videoPath: z.string().min(1),
     outputDir: z.string().min(1),
@@ -323,8 +317,13 @@ server.registerTool('create_visual_review_pack', {
     transitionTimes: z.array(z.number().nonnegative()).max(30).default([]),
     transitionWindow: z.number().min(0.25).max(3).default(1),
     transitionFps: z.number().min(1).max(12).default(4),
+    projectFile: z.string().min(1).optional(),
+    motionPlanPath: z.string().min(1).optional(),
+    reviewRenderVariables: z.record(z.string(), z.unknown()).optional(),
+    layoutAuditFps: z.number().min(2).max(12).default(6),
+    maxLayoutEvidence: z.number().int().min(1).max(30).default(12),
   },
-}, async ({ videoPath, outputDir, overviewInterval, transitionTimes, transitionWindow, transitionFps }) => response(await createVisualReviewPack(videoPath, outputDir, { overviewInterval, transitionTimes, transitionWindow, transitionFps })));
+}, async ({ videoPath, outputDir, ...options }) => response(await createVisualReviewPack(videoPath, outputDir, options)));
 
 const visualMimeTypes: Record<string, string> = {
   '.png': 'image/png',
@@ -426,7 +425,7 @@ server.registerTool('get_motion_component', {
 
 server.registerTool('scaffold_advanced_video', {
   title: 'Scaffold Revideo Composition',
-  description: 'Create the neutral code-first project used for every new production. It includes a searchable component catalog and source primitives but no predesigned scene, palette, cards, copy, or music choice.',
+  description: 'Create the minimal neutral code-first project used for every new production: project, blank scene, review registry, format profile, and motion plan. It adds no optional helper library, empty public folder, predesigned scene, palette, cards, copy, or music choice.',
   inputSchema: {
     outputDir: z.string().min(1),
     name: z.string().min(1),
@@ -437,6 +436,23 @@ server.registerTool('scaffold_advanced_video', {
     fps: z.number().int().min(24).max(60).default(30),
   },
 }, async (options) => response(await scaffoldAdvancedProject(options)));
+
+server.registerTool('add_advanced_video_helpers', {
+  title: 'Add Advanced Video Source Helpers',
+  description: 'Copy only the optional editable source helpers selected for this production, plus their required helper dependencies. Existing project files are never overwritten.',
+  inputSchema: {
+    projectDir: z.string().min(1),
+    helpers: z.array(z.enum(advancedVideoHelperIds)).min(1).max(advancedVideoHelperIds.length),
+  },
+}, async ({ projectDir, helpers }) => response(await addAdvancedVideoHelpers(projectDir, helpers)));
+
+server.registerTool('validate_motion_plan', {
+  title: 'Validate Motion Plan',
+  description: 'Validate motion-plan.json before the first render. Returns exact schema paths, semantic timeline errors, undeclared shot boundaries, unexplained gaps, settle warnings, and the compact authoring contract needed to repair the file.',
+  inputSchema: {
+    motionPlanPath: z.string().min(1),
+  },
+}, async ({ motionPlanPath }) => response(await validateMotionPlan(motionPlanPath)));
 
 server.registerTool('list_advanced_video_files', {
   title: 'List Advanced Video Source Files',
@@ -475,7 +491,7 @@ server.registerTool('patch_advanced_video_file', {
 
 server.registerTool('render_advanced_video', {
   title: 'Render Revideo Composition',
-  description: 'Headlessly render the library-first and custom TypeScript composition in an isolated process group. Before Chromium starts, a fast preflight catches syntax errors, invalid names, broken imports, missing exports, and unsafe Revideo scene-tree collections. Failures return structured file/line/column/code-frame diagnostics. Includes live progress, cancellation, timeout protection, and automatic Chromium/Vite cleanup. Optionally renders only a changed time range. Telemetry is disabled.',
+  description: 'Headlessly render the library-first and custom TypeScript composition in an isolated process group. Before Chromium starts, preflight rejects an invalid motion plan, undeclared shot boundaries, syntax errors, invalid names, broken imports, missing exports, and unsafe Revideo scene-tree collections. Failures return structured diagnostics. Includes live progress, cancellation, timeout protection, and automatic Chromium/Vite cleanup. Optionally renders only a changed time range. Telemetry is disabled.',
   inputSchema: {
     projectFile: z.string().min(1),
     output: z.string().regex(/\.mp4$/),
@@ -572,17 +588,18 @@ server.registerTool('replace_video_range', {
 
 server.registerTool('clean_delivery_output', {
   title: 'Clean Final Delivery Output',
-  description: 'After verifying every named final deliverable, clean the delivery directory and optionally remove generated review packs, render intermediates, previews, caches, and declared temporary paths across one production project. Editable source, public assets, captures, licensed media, references, attribution, and other render inputs remain protected.',
+  description: 'Verify every named final deliverable and recursively clean generated project artifacts even when the output directory is outside the project. External outputs default to shared mode, which never removes sibling files. Owned mode reduces a dedicated delivery directory to keepFiles. Editable source and required render inputs remain protected.',
   inputSchema: {
     outputDir: z.string().min(1),
     keepFiles: z.array(z.string().min(1)).min(1).max(20),
     projectDir: z.string().min(1).optional(),
     temporaryPaths: z.array(z.string().min(1)).max(200).optional(),
+    outputMode: z.enum(['owned', 'shared']).optional(),
   },
-}, async ({ outputDir, keepFiles, projectDir, temporaryPaths }) => response(await cleanDeliveryOutput(
+}, async ({ outputDir, keepFiles, projectDir, temporaryPaths, outputMode }) => response(await cleanDeliveryOutput(
   outputDir,
   keepFiles,
-  {projectDir, temporaryPaths},
+  {projectDir, temporaryPaths, outputMode},
 )));
 
 const transport = new StdioServerTransport();

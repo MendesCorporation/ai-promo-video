@@ -4,7 +4,7 @@ Use this reference when delivering portrait or square video, adapting landscape 
 
 ## Format direction
 
-Call `list_format_profiles` before scaffolding when the output platform matters. Pass `format` and `platform` to `scaffold_advanced_video`. The generated `format-profile.json` records dimensions, conservative safe-area insets, and authoring guidance; `format.tsx` supplies adaptive stages, safe-area bounds, focal crops, and portrait product surfaces.
+Call `list_format_profiles` before scaffolding when the output platform matters. Pass `format` and `platform` to `scaffold_advanced_video`. The generated `format-profile.json` records dimensions, conservative safe-area insets, and authoring guidance. When adaptive stages, safe-area bounds, focal crops, or portrait product surfaces are useful, add the optional `format` source group with `add_advanced_video_helpers`.
 
 Treat safe-area defaults as editable authoring guides. Platform controls and publishing UI can change. Check the current destination UI and adjust insets when necessary. Remove `SafeAreaOverlay` from the delivery render.
 

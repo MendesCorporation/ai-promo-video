@@ -19,6 +19,7 @@ const templateFiles = [
   'three-effects.ts',
   'optical-glass.tsx',
   'liquid-glass-text.tsx',
+  'review.tsx',
 ] as const;
 
 export interface SourceApiContract {

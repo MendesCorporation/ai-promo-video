@@ -1,8 +1,30 @@
 /** @jsxImportSource @revideo/2d/lib */
 import {Circle, Layout, Line} from '@revideo/2d';
-import {Reference, all, easeInOutCubic, easeOutCubic, sequence} from '@revideo/core';
+import {Reference, all, easeInOutCubic, easeOutCubic, sequence, tween} from '@revideo/core';
 import {createNoise2D} from 'simplex-noise';
 import type {Point} from './motion-library';
+
+function scalarTangent(values: number[], times: number[], index: number) {
+  if (values.length < 2) return 0;
+  if (index === 0 || index === values.length - 1) return 0;
+  return (values[index + 1] - values[index - 1]) / (times[index + 1] - times[index - 1]);
+}
+
+function continuousScalar(values: number[], times: number[], elapsed: number) {
+  const last = values.length - 1;
+  if (elapsed <= 0) return values[0];
+  if (elapsed >= times[last]) return values[last];
+  let segment = 0;
+  while (segment < last - 1 && elapsed > times[segment + 1]) segment += 1;
+  const duration = times[segment + 1] - times[segment];
+  const progress = (elapsed - times[segment]) / duration;
+  const progress2 = progress * progress;
+  const progress3 = progress2 * progress;
+  return (2 * progress3 - 3 * progress2 + 1) * values[segment]
+    + (progress3 - 2 * progress2 + progress) * duration * scalarTangent(values, times, segment)
+    + (-2 * progress3 + 3 * progress2) * values[segment + 1]
+    + (progress3 - progress2) * duration * scalarTangent(values, times, segment + 1);
+}
 
 function mulberry32(seed: number): () => number {
   let value = seed >>> 0;
@@ -71,6 +93,53 @@ export function attractParticles(refs: Array<Reference<Circle>>, targets: Point[
     refs[index]().opacity(1, duration * 0.45, easeOutCubic),
     refs[index]().scale(1, duration, easeOutCubic),
   )));
+}
+
+export interface ContinuousParticlePathOptions {
+  /** Per-beat travel times. Defaults to equal divisions of duration. */
+  durations?: number[];
+  opacity?: number;
+  scale?: number;
+}
+
+/**
+ * Carry every particle through multiple authored targets without stopping at
+ * each beat. Target arrays must preserve particle order across beats.
+ */
+export function* continuousParticlePath(
+  refs: Array<Reference<Circle>>,
+  targetsByBeat: Point[][],
+  duration = 2,
+  options: ContinuousParticlePathOptions = {},
+) {
+  if (targetsByBeat.length === 0) return;
+  if (targetsByBeat.some((targets) => targets.length !== refs.length)) {
+    throw new Error('continuousParticlePath requires one target per particle at every beat');
+  }
+  const durations = options.durations ?? Array.from({length: targetsByBeat.length}, () => duration / targetsByBeat.length);
+  if (durations.length !== targetsByBeat.length || durations.some((value) => !Number.isFinite(value) || value <= 0)) {
+    throw new Error('continuousParticlePath durations must match the beat count and be greater than zero');
+  }
+  const times = [0];
+  for (const beatDuration of durations) times.push(times.at(-1)! + beatDuration);
+  const totalDuration = times.at(-1)!;
+  const paths = refs.map((ref, index) => {
+    const origin = ref().position();
+    return [[origin.x, origin.y] as Point, ...targetsByBeat.map((targets) => targets[index])];
+  });
+
+  yield* tween(totalDuration, (progress) => {
+    const elapsed = progress * totalDuration;
+    refs.forEach((ref, index) => {
+      const path = paths[index];
+      ref().position([
+        continuousScalar(path.map((point) => point[0]), times, elapsed),
+        continuousScalar(path.map((point) => point[1]), times, elapsed),
+      ]);
+      if (options.opacity !== undefined) ref().opacity(options.opacity);
+      if (options.scale !== undefined) ref().scale(options.scale);
+    });
+  });
 }
 
 export function dissolveParticles(refs: Array<Reference<Circle>>, vectors: Point[], duration = 0.8, stagger = 0.01) {

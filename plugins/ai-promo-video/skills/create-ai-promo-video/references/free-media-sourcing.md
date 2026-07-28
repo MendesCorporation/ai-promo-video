@@ -4,16 +4,17 @@ Search for visual media by its role in the shot: subject, action, environment, t
 
 ## Providers
 
-- Use `search_free_videos` for user-approved local directories, keyless Wikimedia Commons, and optional Pexels stock footage.
-- Use `search_free_assets` for local images/SVGs/GIFs, Openverse, Wikimedia Commons, and optional Pexels stock photos.
+- Use `search_free_videos` for user-approved local directories, optional Pexels and Pixabay stock footage, and keyless Wikimedia Commons.
+- Use `search_free_assets` for local images/SVGs/GIFs, optional Pexels and Pixabay stock photos, Openverse, and Wikimedia Commons.
 - Prefer local media when the user already has an approved library. Local search is recursive and reads adjacent license sidecars.
-- Openverse and Wikimedia work without a key. Pexels is also free but requires the user's `PEXELS_API_KEY` environment variable and is skipped by `provider: all` when the key is absent. No paid media provider or bundled model is used. Network rate limits still apply.
+- For stock footage and photography, review Pexels and Pixabay before broad open-license fallbacks when their keys are configured. They usually provide more production-ready stock previews and resolutions. Use Openverse and Wikimedia for open-license breadth, historical or factual media, SVGs, illustrations, animations, and fallback footage.
+- Openverse and Wikimedia work without a key. Pexels requires `PEXELS_API_KEY`; Pixabay requires `PIXABAY_API_KEY`. `provider: all` skips either keyed provider when its key is absent. No paid media provider or bundled model is used. Network rate limits still apply.
 
 Use landscape footage for 16:9 compositions unless the shot deliberately needs portrait or square media. Filter by minimum dimensions and duration before reviewing candidates.
 
 ## License gate
 
-Default selection permits public-domain, CC0, CC BY, and Pexels License media. CC BY requires attribution. Pexels attribution is encouraged and retained in the manifest even though its media license does not require it. Do not imply that depicted people or brands endorse the SaaS. Share-alike media is disabled by default; enable it only after the user accepts the obligation. Reject non-commercial, no-derivatives, missing, ambiguous, or unsupported licenses.
+Default selection permits public-domain, CC0, CC BY, Pexels License, and Pixabay Content License media. CC BY requires attribution. Pexels and Pixabay attribution is retained in the manifest even when the provider license does not require it. Do not redistribute provider stock as an unaltered standalone asset or imply that depicted people or brands endorse the SaaS. Share-alike media is disabled by default; enable it only after the user accepts the obligation. Reject non-commercial, no-derivatives, missing, ambiguous, or unsupported licenses.
 
 Unknown-license local media is not selectable unless the user explicitly confirms they own it or may use it. This override applies only to unknown local media, not to clearly restrictive licenses.
 
@@ -45,7 +46,7 @@ CLI equivalents:
 
 ```text
 video:search --query "software team" --provider all --orientation landscape --min-width 1280
-video:download <id> --provider wikimedia|pexels --output-dir ./media
+video:download <id> --provider wikimedia|pexels|pixabay --output-dir ./media
 asset:search --query "abstract technology" --provider all --kind image --min-width 1200
-asset:download <id> --provider openverse|wikimedia|pexels --output-dir ./media
+asset:download <id> --provider openverse|wikimedia|pexels|pixabay --output-dir ./media
 ```

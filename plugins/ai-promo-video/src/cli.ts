@@ -8,14 +8,14 @@ Commands:
   capture <capture.json>
   record <capture.json>
   music [--mood word] [--max-intensity 0.7]
-  music:search --query "focused technology" [--provider all|local|bundled|openverse] [--dirs path,path] [--include-bundled]
+  music:search --query "focused technology" [--provider all|local|bundled|freesound|jamendo|wikimedia_audio|openverse] [--dirs path,path] [--include-bundled]
   music:download <openverse-id> --output-dir <dir>
   music:analyze <audio-file> [--review-dir <dir>]
   music:mix <mix.json>
-  video:search --query "software team" [--provider all|local|wikimedia|pexels] [--dirs path,path] [--orientation landscape]
-  video:download <id> --provider wikimedia|pexels --output-dir <dir>
-  asset:search --query "abstract gradient" [--provider all|local|openverse|wikimedia|pexels] [--kind all|image|svg|animation]
-  asset:download <id> --provider openverse|wikimedia|pexels --output-dir <dir>
+  video:search --query "software team" [--provider all|local|pexels|pixabay|wikimedia] [--dirs path,path] [--orientation landscape]
+  video:download <id> --provider wikimedia|pexels|pixabay --output-dir <dir>
+  asset:search --query "abstract gradient" [--provider all|local|pexels|pixabay|openverse|wikimedia] [--kind all|image|svg|animation]
+  asset:download <id> --provider openverse|wikimedia|pexels|pixabay --output-dir <dir>
   audio:generate
   validate <spec.json> [--kind video|capture]
   render <video.json> [--workers 4] [--keep-frames]
@@ -26,6 +26,8 @@ Commands:
   caption:prepare <captions.srt|vtt|json> [--output caption-timing.json]
   caption:review <caption-timing.json>
   advanced:init <directory> --name "Product promo" [--format landscape|portrait|square --platform generic|tiktok|instagram-reels|youtube-shorts --width 1920 --height 1080 --fps 30]
+  advanced:add <project-dir> --helpers camera,procedural
+  advanced:validate-plan <motion-plan.json>
   advanced:render <project.tsx> --output <video.mp4> [--workers 1] [--start 10 --end 16] [--startup-timeout 120 --stall-timeout 300 --max-render-time 7200]
   advanced:patch <project-dir> <relative-file> <patches.json>
   image:edit <edit.json>
@@ -34,7 +36,7 @@ Commands:
   probe <video.mp4>
   review <video.mp4> --output-dir <dir> --times 2,8,15
   review:auto <video.mp4> --output-dir <dir> [--interval 2 --transitions 4.5,8,13 --window 1 --fps 4]
-  clean <delivery-dir> --keep final.mp4[,credits.json] [--project-dir <dir> --temporary-paths path,path]
+  clean <delivery-dir> --keep final.mp4[,credits.json] [--project-dir <dir> --output-mode owned|shared --temporary-paths path,path]
 `;
 
 function parse(argv: string[]): { command?: string; args: string[]; flags: Record<string, string | boolean> } {

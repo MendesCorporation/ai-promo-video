@@ -1,14 +1,15 @@
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { constants, existsSync } from 'node:fs';
 import { fork, spawn } from 'node:child_process';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { motionComponentLibrary, motionLibrarySummary } from './library.js';
+import { motionLibrarySummary } from './library.js';
 import { resolveVideoFormat, type PlatformTarget, type VideoFormatId, type VideoFormatProfile } from './formats.js';
 import type { AdvancedRenderParentMessage, AdvancedRenderWorkerMessage, RenderProgressUpdate } from './render-protocol.js';
 import { AdvancedSourceValidationError, validateAdvancedProjectSource } from './source-validation.js';
-import {AdvancedDiagnosticError, rendererFailureReport} from './diagnostics.js';
+import {AdvancedDiagnosticError, motionPlanFailureReport, rendererFailureReport} from './diagnostics.js';
 import {AdvancedTypecheckError, validateAdvancedProjectTypes} from './typecheck.js';
+import {defaultMotionPlan, motionPlanAuthoringGuide, validateMotionPlan} from './motion-plan.js';
 
 export type { RenderPhase, RenderProgressUpdate } from './render-protocol.js';
 
@@ -16,8 +17,59 @@ export interface AdvancedProjectResult {
   projectDir: string;
   projectFile: string;
   sceneFile: string;
+  motionPlanPath: string;
   formatProfile: VideoFormatProfile;
+  motionPlanGuide: typeof motionPlanAuthoringGuide;
 }
+
+export const advancedVideoHelperIds = [
+  'ambient',
+  'camera',
+  'captions',
+  'format',
+  'kinetic',
+  'liquid-glass-text',
+  'motion-library',
+  'optical-glass',
+  'paint',
+  'procedural',
+  'scene-tree',
+  'three-effects',
+  'transitions',
+  'vector-motion',
+] as const;
+
+export type AdvancedVideoHelperId = typeof advancedVideoHelperIds[number];
+
+export interface AdvancedVideoHelpersResult {
+  projectDir: string;
+  requested: AdvancedVideoHelperId[];
+  resolved: AdvancedVideoHelperId[];
+  added: string[];
+  existing: string[];
+}
+
+const advancedTemplateDir = fileURLToPath(new URL('../../assets/revideo-template/', import.meta.url));
+const coreAdvancedProjectFiles = ['project.tsx', 'scene.tsx', 'review.tsx'] as const;
+const advancedVideoHelpers: Record<AdvancedVideoHelperId, {
+  files: readonly string[];
+  dependencies?: readonly AdvancedVideoHelperId[];
+}> = {
+  ambient: {files: ['ambient.ts']},
+  camera: {files: ['camera.ts'], dependencies: ['ambient', 'scene-tree']},
+  captions: {files: ['captions.tsx']},
+  format: {files: ['format.tsx']},
+  kinetic: {files: ['kinetic.ts']},
+  'liquid-glass-text': {files: ['liquid-glass-text.tsx', 'liquid-glass-text.glsl']},
+  'motion-library': {files: ['motion-library.tsx']},
+  'optical-glass': {files: ['optical-glass.tsx', 'optical-glass.glsl']},
+  paint: {files: ['paint.ts']},
+  procedural: {files: ['procedural.tsx'], dependencies: ['motion-library']},
+  'scene-tree': {files: ['scene-tree.ts']},
+  'three-effects': {files: ['three-effects.ts']},
+  transitions: {files: ['transitions.ts'], dependencies: ['vector-motion', 'scene-tree']},
+  'vector-motion': {files: ['vector-motion.ts']},
+};
 
 export const motionCapabilities = {
   engine: 'Revideo 0.11 (MIT)',
@@ -25,7 +77,8 @@ export const motionCapabilities = {
   primitives: ['Rect', 'Circle', 'Polygon', 'Line', 'Spline', 'Path', 'SVG', 'Img', 'Video', 'Audio', 'Txt', 'Layout', 'Grid', 'Rive'],
   formats: ['landscape 16:9', 'portrait 9:16', 'square 1:1', 'platform-aware safe areas', 'adaptive layout helpers', 'focal cover crops'],
   captions: ['SRT and WebVTT import', 'exact word timing JSON', 'deterministic cue interpolation', 'word-follow captions', 'karaoke captions', 'semantic punch captions', 'speaker labels', 'caption timing QA'],
-  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'ten executable transition rigs', 'seven executable camera rigs', 'open custom camera paths', 'path drawing', 'continuous ambient timelines', 'ambient camera drift', 'ambient parallax', 'ambient orbit and light pulse', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'specular text sweeps', 'liquid-glass glyph refraction', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography', 'vector glyph outlines', 'SVG shape morphing', 'text on paths', 'particle attraction and dissolution'],
+  animation: ['signals', 'tweens', 'springs', 'staggered sequences', 'custom easing', 'ten executable transition rigs', 'velocity-preserving continuous camera paths', 'open segmented camera paths', 'path drawing', 'continuous particle paths', 'continuous ambient timelines', 'ambient camera drift', 'ambient parallax', 'ambient orbit and light pulse', 'text interpolation', 'word cascades', 'letter tracking reveals', 'impact text', 'per-letter rise', 'animated text gradients', 'specular text sweeps', 'liquid-glass glyph refraction', 'typewriter with caret', 'erase and rewrite', 'blur-to-focus text', 'directional phrase swaps', 'text pushing text', 'camera-linked typography', 'vector glyph outlines', 'SVG shape morphing', 'text on paths', 'particle attraction and dissolution'],
+  qualityAssurance: ['machine-readable motion plan', 'source motion lint', 'declared settle frames', 'focal-region motion continuity candidates', 'render-only layout audit', 'registered overflow detection', 'registered collision detection', 'optical centering targets', 'exact annotated evidence frames'],
   effects: ['native linear and radial gradient paints', 'CSS-angle gradient geometry conversion', 'blur', 'brightness', 'contrast', 'hue', 'saturation', 'shadows', 'blend modes', 'masks', 'optical liquid-glass refraction', 'GLSL destination-texture shaders', 'simplex-noise flow fields', 'selective bloom', 'depth of field', 'chromatic aberration', 'grain', 'vignette'],
   threeD: ['Three.js scenes', 'perspective cameras', 'textured product screens', 'lights', 'particles', 'depth and parallax'],
   exampleRecipes: ['footage-led emotional edit', 'continuous ambient shot', 'continuous visual transformation', 'kinetic manifesto', 'perspective product reveal', 'focused cursor interaction', 'interface assembly', 'editorial split proof', 'data visualization', 'typography-driven transition', 'abstract procedural environment', 'true 3D product stage', 'mandatory visual review pack'],
@@ -34,6 +87,19 @@ export const motionCapabilities = {
 };
 
 const advancedSourceExtensions = new Set(['.ts', '.tsx', '.css', '.json', '.svg', '.glsl']);
+
+function resolveAdvancedVideoHelpers(requested: readonly AdvancedVideoHelperId[]): AdvancedVideoHelperId[] {
+  const resolved = new Set<AdvancedVideoHelperId>();
+  const visit = (id: AdvancedVideoHelperId): void => {
+    for (const dependency of advancedVideoHelpers[id].dependencies ?? []) visit(dependency);
+    resolved.add(id);
+  };
+  for (const id of requested) {
+    if (!advancedVideoHelperIds.includes(id)) throw new Error(`Unknown advanced video helper: ${id}`);
+    visit(id);
+  }
+  return advancedVideoHelperIds.filter((id) => resolved.has(id));
+}
 
 function advancedProjectPath(projectDir: string, relativePath: string): string {
   const root = resolve(projectDir);
@@ -54,10 +120,8 @@ export async function scaffoldAdvancedProject(options: {
 }): Promise<AdvancedProjectResult> {
   const projectDir = resolve(options.outputDir);
   const formatProfile = resolveVideoFormat({ format: options.format, platform: options.platform, width: options.width, height: options.height });
-  const source = fileURLToPath(new URL('../../assets/revideo-template/', import.meta.url));
   await mkdir(projectDir, { recursive: true });
-  await cp(source, projectDir, { recursive: true });
-  await mkdir(join(projectDir, 'public'), { recursive: true });
+  await Promise.all(coreAdvancedProjectFiles.map((name) => copyFile(join(advancedTemplateDir, name), join(projectDir, name))));
   const projectFile = join(projectDir, 'project.tsx');
   const content = (await readFile(projectFile, 'utf8'))
     .replaceAll('__PROJECT_NAME__', options.name.replaceAll('"', ''))
@@ -65,12 +129,54 @@ export async function scaffoldAdvancedProject(options: {
     .replaceAll('__HEIGHT__', String(formatProfile.height))
     .replaceAll('__FPS__', String(options.fps ?? 30));
   await writeFile(projectFile, content, 'utf8');
-  await writeFile(join(projectDir, 'motion-library.json'), JSON.stringify({
-    ...motionLibrarySummary,
-    components: motionComponentLibrary,
-  }, null, 2), 'utf8');
   await writeFile(join(projectDir, 'format-profile.json'), `${JSON.stringify(formatProfile, null, 2)}\n`, 'utf8');
-  return { projectDir, projectFile, sceneFile: join(projectDir, 'scene.tsx'), formatProfile };
+  const motionPlanPath = join(projectDir, 'motion-plan.json');
+  await writeFile(motionPlanPath, `${JSON.stringify(defaultMotionPlan(formatProfile), null, 2)}\n`, 'utf8');
+  return {
+    projectDir,
+    projectFile,
+    sceneFile: join(projectDir, 'scene.tsx'),
+    motionPlanPath,
+    formatProfile,
+    motionPlanGuide: motionPlanAuthoringGuide,
+  };
+}
+
+export async function addAdvancedVideoHelpers(
+  projectDir: string,
+  requested: readonly AdvancedVideoHelperId[],
+): Promise<AdvancedVideoHelpersResult> {
+  if (requested.length === 0) throw new Error('At least one advanced video helper is required');
+  const root = resolve(projectDir);
+  if (!existsSync(join(root, 'project.tsx'))) throw new Error(`Advanced project does not exist: ${root}`);
+  const uniqueRequested = advancedVideoHelperIds.filter((id) => requested.includes(id));
+  const resolvedHelpers = resolveAdvancedVideoHelpers(requested);
+  const added: string[] = [];
+  const existing: string[] = [];
+
+  for (const helper of resolvedHelpers) {
+    for (const relativePath of advancedVideoHelpers[helper].files) {
+      try {
+        await copyFile(
+          join(advancedTemplateDir, relativePath),
+          advancedProjectPath(root, relativePath),
+          constants.COPYFILE_EXCL,
+        );
+        added.push(relativePath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        existing.push(relativePath);
+      }
+    }
+  }
+
+  return {
+    projectDir: root,
+    requested: uniqueRequested,
+    resolved: resolvedHelpers,
+    added: added.sort(),
+    existing: existing.sort(),
+  };
 }
 
 export async function saveAdvancedProjectFile(projectDir: string, relativePath: string, source: string): Promise<string> {
@@ -145,6 +251,11 @@ export async function renderAdvancedProject(options: {
   if (!Number.isInteger(workers) || workers < 1 || workers > 8) throw new Error('workers must be an integer between 1 and 8');
   for (const [name, value] of Object.entries({ startupTimeoutMs, stallTimeoutMs, maxRenderTimeMs })) {
     if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be greater than zero`);
+  }
+  const motionPlanPath = join(dirname(projectFile), 'motion-plan.json');
+  if (existsSync(motionPlanPath)) {
+    const motionPlanValidation = await validateMotionPlan(motionPlanPath);
+    if (!motionPlanValidation.valid) throw new AdvancedDiagnosticError(motionPlanFailureReport(motionPlanValidation));
   }
   const sourceValidation = await validateAdvancedProjectSource(projectFile);
   if (!sourceValidation.valid) throw new AdvancedSourceValidationError(sourceValidation);

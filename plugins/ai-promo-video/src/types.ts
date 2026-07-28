@@ -136,6 +136,7 @@ export interface AudioTrack {
 
 export interface MusicSearchResult {
   provider: 'bundled' | 'local' | 'openverse';
+  source?: string;
   id: string;
   title: string;
   creator?: string;
@@ -151,7 +152,7 @@ export interface MusicSearchResult {
 }
 
 export type FreeMediaKind = 'video' | 'image' | 'svg' | 'animation';
-export type FreeMediaProvider = 'local' | 'openverse' | 'wikimedia' | 'pexels';
+export type FreeMediaProvider = 'local' | 'openverse' | 'wikimedia' | 'pexels' | 'pixabay';
 export type MediaOrientation = 'landscape' | 'portrait' | 'square';
 
 export interface FreeMediaSearchResult {

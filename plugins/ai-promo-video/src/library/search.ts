@@ -3,9 +3,10 @@ import { searchLocalAssets, searchLocalVideos } from './local.js';
 import { downloadOpenverseAsset, searchOpenverseAssets } from './openverse.js';
 import { downloadWikimediaMedia, searchWikimediaAssets, searchWikimediaVideos } from './wikimedia.js';
 import { downloadPexelsPhoto, downloadPexelsVideo, searchPexelsPhotos, searchPexelsVideos } from './pexels.js';
+import { downloadPixabayImage, downloadPixabayVideo, searchPixabayImages, searchPixabayVideos } from './pixabay.js';
 
-export type VideoSearchProvider = 'all' | 'local' | 'wikimedia' | 'pexels';
-export type AssetSearchProvider = 'all' | 'local' | 'openverse' | 'wikimedia' | 'pexels';
+export type VideoSearchProvider = 'all' | 'local' | 'wikimedia' | 'pexels' | 'pixabay';
+export type AssetSearchProvider = 'all' | 'local' | 'openverse' | 'wikimedia' | 'pexels' | 'pixabay';
 
 export async function searchFreeVideos(options: {
   query?: string;
@@ -18,6 +19,7 @@ export async function searchFreeVideos(options: {
   minHeight?: number;
   pageSize?: number;
   pexelsLocale?: string;
+  pixabayLocale?: string;
   includeShareAlike?: boolean;
   allowUnknownLocalLicense?: boolean;
 } = {}): Promise<FreeMediaSearchResult[]> {
@@ -36,22 +38,6 @@ export async function searchFreeVideos(options: {
       allowUnknownLicense: options.allowUnknownLocalLicense,
     }));
   }
-  if (provider === 'all' || provider === 'wikimedia') {
-    if (!options.query) {
-      if (provider === 'wikimedia') throw new Error('Wikimedia video search requires a query');
-    } else {
-      tasks.push(searchWikimediaVideos({
-        query: options.query,
-        orientation: options.orientation,
-        minDuration: options.minDuration,
-        maxDuration: options.maxDuration,
-        minWidth: options.minWidth,
-        minHeight: options.minHeight,
-        pageSize: options.pageSize,
-        includeShareAlike: options.includeShareAlike,
-      }));
-    }
-  }
   if (provider === 'pexels' || (provider === 'all' && Boolean(process.env.PEXELS_API_KEY))) {
     if (!options.query) {
       if (provider === 'pexels') throw new Error('Pexels video search requires a query');
@@ -65,6 +51,38 @@ export async function searchFreeVideos(options: {
         minHeight: options.minHeight,
         pageSize: options.pageSize,
         locale: options.pexelsLocale,
+      }));
+    }
+  }
+  if (provider === 'pixabay' || (provider === 'all' && Boolean(process.env.PIXABAY_API_KEY))) {
+    if (!options.query) {
+      if (provider === 'pixabay') throw new Error('Pixabay video search requires a query');
+    } else {
+      tasks.push(searchPixabayVideos({
+        query: options.query,
+        orientation: options.orientation,
+        minDuration: options.minDuration,
+        maxDuration: options.maxDuration,
+        minWidth: options.minWidth,
+        minHeight: options.minHeight,
+        pageSize: options.pageSize,
+        locale: options.pixabayLocale,
+      }));
+    }
+  }
+  if (provider === 'all' || provider === 'wikimedia') {
+    if (!options.query) {
+      if (provider === 'wikimedia') throw new Error('Wikimedia video search requires a query');
+    } else {
+      tasks.push(searchWikimediaVideos({
+        query: options.query,
+        orientation: options.orientation,
+        minDuration: options.minDuration,
+        maxDuration: options.maxDuration,
+        minWidth: options.minWidth,
+        minHeight: options.minHeight,
+        pageSize: options.pageSize,
+        includeShareAlike: options.includeShareAlike,
       }));
     }
   }
@@ -82,6 +100,7 @@ export async function searchFreeAssets(options: {
   pageSize?: number;
   openverseSource?: string;
   pexelsLocale?: string;
+  pixabayLocale?: string;
   includeShareAlike?: boolean;
   allowUnknownLocalLicense?: boolean;
 } = {}): Promise<FreeMediaSearchResult[]> {
@@ -98,6 +117,34 @@ export async function searchFreeAssets(options: {
       includeShareAlike: options.includeShareAlike,
       allowUnknownLicense: options.allowUnknownLocalLicense,
     }));
+  }
+  if (provider === 'pexels' || (provider === 'all' && Boolean(process.env.PEXELS_API_KEY))) {
+    if (!options.query) {
+      if (provider === 'pexels') throw new Error('Pexels asset search requires a query');
+    } else if (options.kind === undefined || options.kind === 'all' || options.kind === 'image') {
+      tasks.push(searchPexelsPhotos({
+        query: options.query,
+        orientation: options.orientation,
+        minWidth: options.minWidth,
+        minHeight: options.minHeight,
+        pageSize: options.pageSize,
+        locale: options.pexelsLocale,
+      }));
+    }
+  }
+  if (provider === 'pixabay' || (provider === 'all' && Boolean(process.env.PIXABAY_API_KEY))) {
+    if (!options.query) {
+      if (provider === 'pixabay') throw new Error('Pixabay asset search requires a query');
+    } else if (options.kind === undefined || options.kind === 'all' || options.kind === 'image') {
+      tasks.push(searchPixabayImages({
+        query: options.query,
+        orientation: options.orientation,
+        minWidth: options.minWidth,
+        minHeight: options.minHeight,
+        pageSize: options.pageSize,
+        locale: options.pixabayLocale,
+      }));
+    }
   }
   if (provider === 'all' || provider === 'openverse') {
     if (!options.query) {
@@ -130,31 +177,23 @@ export async function searchFreeAssets(options: {
       }));
     }
   }
-  if (provider === 'pexels' || (provider === 'all' && Boolean(process.env.PEXELS_API_KEY))) {
-    if (!options.query) {
-      if (provider === 'pexels') throw new Error('Pexels asset search requires a query');
-    } else if (options.kind === undefined || options.kind === 'all' || options.kind === 'image') {
-      tasks.push(searchPexelsPhotos({
-        query: options.query,
-        orientation: options.orientation,
-        minWidth: options.minWidth,
-        minHeight: options.minHeight,
-        pageSize: options.pageSize,
-        locale: options.pexelsLocale,
-      }));
-    }
-  }
   return (await Promise.all(tasks)).flat();
 }
 
-export function downloadFreeVideo(provider: 'wikimedia' | 'pexels', id: string, outputDir: string, options: { includeShareAlike?: boolean } = {}): Promise<FreeMediaSearchResult> {
-  return provider === 'pexels' ? downloadPexelsVideo(id, outputDir) : downloadWikimediaMedia(id, outputDir, options);
+export function downloadFreeVideo(provider: 'wikimedia' | 'pexels' | 'pixabay', id: string, outputDir: string, options: { includeShareAlike?: boolean } = {}): Promise<FreeMediaSearchResult> {
+  return provider === 'pexels'
+    ? downloadPexelsVideo(id, outputDir)
+    : provider === 'pixabay'
+      ? downloadPixabayVideo(id, outputDir)
+      : downloadWikimediaMedia(id, outputDir, options);
 }
 
-export function downloadFreeAsset(provider: 'openverse' | 'wikimedia' | 'pexels', id: string, outputDir: string, options: { includeShareAlike?: boolean } = {}): Promise<FreeMediaSearchResult> {
+export function downloadFreeAsset(provider: 'openverse' | 'wikimedia' | 'pexels' | 'pixabay', id: string, outputDir: string, options: { includeShareAlike?: boolean } = {}): Promise<FreeMediaSearchResult> {
   return provider === 'openverse'
     ? downloadOpenverseAsset(id, outputDir, options)
     : provider === 'pexels'
       ? downloadPexelsPhoto(id, outputDir)
+      : provider === 'pixabay'
+        ? downloadPixabayImage(id, outputDir)
       : downloadWikimediaMedia(id, outputDir, options);
 }

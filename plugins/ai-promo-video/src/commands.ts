@@ -1,15 +1,16 @@
 import { resolve } from 'node:path';
 import { generateAudioLibrary } from './audio/generate-library.js';
 import { listAudioTracks } from './audio/catalog.js';
-import { downloadOpenverseMusic, searchOpenverseMusic } from './audio/openverse.js';
-import { searchLocalMusic } from './audio/search.js';
+import { downloadOpenverseMusic } from './audio/openverse.js';
+import { searchMusic, type MusicSearchProvider } from './audio/search.js';
 import { analyzeMusic } from './audio/analyze.js';
 import { captureFromSpecFile, inspectSite, recordFromSpecFile } from './capture/capture.js';
 import { createVisualReviewPack, extractReviewFrames, probeVideo } from './render/probe.js';
 import { renderFromSpecFile } from './render/renderer.js';
-import { motionCapabilities, patchAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from './advanced/engine.js';
+import { addAdvancedVideoHelpers, advancedVideoHelperIds, motionCapabilities, patchAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject, type AdvancedVideoHelperId } from './advanced/engine.js';
 import { motionComponentLibrary, searchMotionComponents, type MotionComponentCategory, type MotionEnergy } from './advanced/library.js';
 import { platformTargets, videoFormatIds, videoFormatProfiles, type PlatformTarget, type VideoFormatId } from './advanced/formats.js';
+import { validateMotionPlan } from './advanced/motion-plan.js';
 import { prepareCaptionTiming, reviewCaptionTiming } from './captions/timing.js';
 import { editImage, editVideo, mixMusic, replaceVideoRange } from './media/edit.js';
 import { cleanDeliveryOutput } from './media/cleanup.js';
@@ -64,18 +65,25 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       });
     case 'music:search': {
       const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
-      const provider = typeof flags.provider === 'string' ? flags.provider : 'all';
+      const provider = enumFlag<MusicSearchProvider>(
+        flags.provider,
+        ['all', 'local', 'bundled', 'freesound', 'jamendo', 'wikimedia_audio', 'openverse'],
+        'all',
+        'provider',
+      );
       const minDuration = typeof flags['min-duration'] === 'string' ? Number(flags['min-duration']) : undefined;
       const maxDuration = typeof flags['max-duration'] === 'string' ? Number(flags['max-duration']) : undefined;
       const directories = typeof flags.dirs === 'string' ? flags.dirs.split(',').filter(Boolean) : [];
-      const results = [];
-      if (provider === 'all' || provider === 'local') results.push(...await searchLocalMusic({ query, directories, includeBundled: flags['include-bundled'] === true, minDuration, maxDuration, allowUnknownLicense: flags['allow-unknown-license'] === true }));
-      if (provider === 'bundled') results.push(...await searchLocalMusic({ query, includeBundled: true, minDuration, maxDuration }));
-      if (provider === 'all' || provider === 'openverse') {
-        if (!query) throw new Error('Online music search requires --query');
-        results.push(...await searchOpenverseMusic({ query, minDuration, maxDuration, source: typeof flags.source === 'string' ? flags.source : undefined }));
-      }
-      return results;
+      return searchMusic({
+        query: query || undefined,
+        provider,
+        localDirectories: directories,
+        includeBundled: flags['include-bundled'] === true,
+        source: typeof flags.source === 'string' ? flags.source : undefined,
+        minDuration,
+        maxDuration,
+        allowUnknownLocalLicense: flags['allow-unknown-license'] === true,
+      });
     }
     case 'music:download': {
       const id = args[0];
@@ -92,7 +100,7 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
       return searchFreeVideos({
         query: query || undefined,
-        provider: enumFlag<VideoSearchProvider>(flags.provider, ['all', 'local', 'wikimedia', 'pexels'], 'all', 'provider'),
+        provider: enumFlag<VideoSearchProvider>(flags.provider, ['all', 'local', 'pexels', 'pixabay', 'wikimedia'], 'all', 'provider'),
         localDirectories: typeof flags.dirs === 'string' ? flags.dirs.split(',').filter(Boolean) : [],
         orientation: typeof flags.orientation === 'string' ? enumFlag<MediaOrientation>(flags.orientation, ['landscape', 'portrait', 'square'], 'landscape', 'orientation') : undefined,
         minDuration: numberFlag(flags['min-duration']),
@@ -101,21 +109,22 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         minHeight: numberFlag(flags['min-height']),
         pageSize: numberFlag(flags['page-size']),
         pexelsLocale: typeof flags.locale === 'string' ? flags.locale : undefined,
+        pixabayLocale: typeof flags.locale === 'string' ? flags.locale : undefined,
         includeShareAlike: flags['include-share-alike'] === true,
         allowUnknownLocalLicense: flags['allow-unknown-license'] === true,
       });
     }
     case 'video:download': {
       const id = args[0];
-      if (!id) throw new Error('Usage: ai-promo video:download <id> --provider wikimedia|pexels --output-dir <dir>');
-      const provider = enumFlag(flags.provider, ['wikimedia', 'pexels'] as const, 'wikimedia', 'provider');
+      if (!id) throw new Error('Usage: ai-promo video:download <id> --provider wikimedia|pexels|pixabay --output-dir <dir>');
+      const provider = enumFlag(flags.provider, ['wikimedia', 'pexels', 'pixabay'] as const, 'wikimedia', 'provider');
       return downloadFreeVideo(provider, id, typeof flags['output-dir'] === 'string' ? flags['output-dir'] : './videos', { includeShareAlike: flags['include-share-alike'] === true });
     }
     case 'asset:search': {
       const query = typeof flags.query === 'string' ? flags.query : args.join(' ');
       return searchFreeAssets({
         query: query || undefined,
-        provider: enumFlag<AssetSearchProvider>(flags.provider, ['all', 'local', 'openverse', 'wikimedia', 'pexels'], 'all', 'provider'),
+        provider: enumFlag<AssetSearchProvider>(flags.provider, ['all', 'local', 'pexels', 'pixabay', 'openverse', 'wikimedia'], 'all', 'provider'),
         localDirectories: typeof flags.dirs === 'string' ? flags.dirs.split(',').filter(Boolean) : [],
         kind: enumFlag(flags.kind, ['all', 'image', 'svg', 'animation'] as const, 'all', 'kind'),
         orientation: typeof flags.orientation === 'string' ? enumFlag<MediaOrientation>(flags.orientation, ['landscape', 'portrait', 'square'], 'landscape', 'orientation') : undefined,
@@ -124,14 +133,15 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         pageSize: numberFlag(flags['page-size']),
         openverseSource: typeof flags.source === 'string' ? flags.source : undefined,
         pexelsLocale: typeof flags.locale === 'string' ? flags.locale : undefined,
+        pixabayLocale: typeof flags.locale === 'string' ? flags.locale : undefined,
         includeShareAlike: flags['include-share-alike'] === true,
         allowUnknownLocalLicense: flags['allow-unknown-license'] === true,
       });
     }
     case 'asset:download': {
       const id = args[0];
-      if (!id) throw new Error('Usage: ai-promo asset:download <id> --provider openverse|wikimedia|pexels --output-dir <dir>');
-      const provider = enumFlag(flags.provider, ['openverse', 'wikimedia', 'pexels'] as const, 'openverse', 'provider');
+      if (!id) throw new Error('Usage: ai-promo asset:download <id> --provider openverse|wikimedia|pexels|pixabay --output-dir <dir>');
+      const provider = enumFlag(flags.provider, ['openverse', 'wikimedia', 'pexels', 'pixabay'] as const, 'openverse', 'provider');
       return downloadFreeAsset(provider, id, typeof flags['output-dir'] === 'string' ? flags['output-dir'] : './assets', { includeShareAlike: flags['include-share-alike'] === true });
     }
     case 'audio:generate':
@@ -182,6 +192,21 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         height: typeof flags.height === 'string' ? Number(flags.height) : undefined,
         fps: typeof flags.fps === 'string' ? Number(flags.fps) : undefined,
       });
+    }
+    case 'advanced:add': {
+      const projectDir = args[0];
+      if (!projectDir || typeof flags.helpers !== 'string') {
+        throw new Error(`Usage: ai-promo advanced:add <project-dir> --helpers <${advancedVideoHelperIds.join('|')}>[,helper]`);
+      }
+      const helpers = [...new Set(flags.helpers.split(',').map((value) => value.trim()).filter(Boolean))];
+      const unknown = helpers.filter((value) => !advancedVideoHelperIds.includes(value as AdvancedVideoHelperId));
+      if (unknown.length > 0) throw new Error(`Unknown advanced video helpers: ${unknown.join(', ')}`);
+      return addAdvancedVideoHelpers(projectDir, helpers as AdvancedVideoHelperId[]);
+    }
+    case 'advanced:validate-plan': {
+      const motionPlanPath = args[0];
+      if (!motionPlanPath) throw new Error('Usage: ai-promo advanced:validate-plan <motion-plan.json>');
+      return validateMotionPlan(motionPlanPath);
     }
     case 'caption:prepare': {
       const inputPath = args[0];
@@ -246,7 +271,7 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
       return { frames: await extractReviewFrames(args[0], outputDir, times) };
     }
     case 'review:auto': {
-      if (!args[0]) throw new Error('Usage: ai-promo review:auto <video.mp4> --output-dir <dir> [--interval 2 --transitions 4.5,8,13]');
+      if (!args[0]) throw new Error('Usage: ai-promo review:auto <video.mp4> --output-dir <dir> [--project project.tsx --motion-plan motion-plan.json --interval 2 --transitions 4.5,8,13]');
       const outputDir = typeof flags['output-dir'] === 'string' ? flags['output-dir'] : './visual-review';
       const transitionTimes = String(flags.transitions ?? '').split(',').filter(Boolean).map(Number).filter(Number.isFinite);
       return createVisualReviewPack(args[0], outputDir, {
@@ -254,14 +279,22 @@ export async function runCommandByName(name: string, args: string[], flags: Reco
         transitionTimes,
         transitionWindow: typeof flags.window === 'string' ? Number(flags.window) : undefined,
         transitionFps: typeof flags.fps === 'string' ? Number(flags.fps) : undefined,
+        projectFile: typeof flags.project === 'string' ? flags.project : undefined,
+        motionPlanPath: typeof flags['motion-plan'] === 'string' ? flags['motion-plan'] : undefined,
+        reviewRenderVariables: typeof flags.variables === 'string' ? await readJson(resolve(flags.variables)) as Record<string, unknown> : undefined,
+        layoutAuditFps: typeof flags['audit-fps'] === 'string' ? Number(flags['audit-fps']) : undefined,
+        maxLayoutEvidence: typeof flags['max-layout-evidence'] === 'string' ? Number(flags['max-layout-evidence']) : undefined,
       });
     }
     case 'clean': {
-      if (!args[0]) throw new Error('Usage: ai-promo clean <delivery-dir> --keep final.mp4 [--project-dir <dir> --temporary-paths path,path]');
+      if (!args[0]) throw new Error('Usage: ai-promo clean <delivery-dir> --keep final.mp4 [--project-dir <dir> --output-mode owned|shared --temporary-paths path,path]');
       const keepFiles = typeof flags.keep === 'string' ? flags.keep.split(',').filter(Boolean) : [];
       return cleanDeliveryOutput(args[0], keepFiles, {
         projectDir: typeof flags['project-dir'] === 'string' ? flags['project-dir'] : undefined,
         temporaryPaths: typeof flags['temporary-paths'] === 'string' ? flags['temporary-paths'].split(',').filter(Boolean) : undefined,
+        outputMode: typeof flags['output-mode'] === 'string'
+          ? enumFlag(flags['output-mode'], ['owned', 'shared'] as const, 'owned', 'output-mode')
+          : undefined,
       });
     }
     default:

@@ -84,12 +84,12 @@ export const toolHelpEntries: HelpEntry[] = [
     maxIntensity: parameter('number', 'Maximum normalized intensity.', {accepted: '0..1'}),
   }, {avoidWhen: ['The user did not explicitly ask to include bundled tracks.']}),
   tool('generate_music_library', 'Generate Open Music Library', 'Generate deterministic bundled CC0 WAV files locally.', {}),
-  tool('search_music', 'Search Free Music', 'Search licensed local folders and Openverse by explicit musical intent.', {
+  tool('search_music', 'Search Free Music', 'Search Freesound-first licensed music, then local, Jamendo, and Wikimedia Audio candidates through Openverse.', {
     query: parameter('string', 'Search phrase describing emotion, energy, instrumentation, and exclusions.'),
-    provider: parameter("'all' | 'local' | 'bundled' | 'openverse'", 'Search surface.', {default: 'all'}),
+    provider: parameter("'all' | 'local' | 'bundled' | 'freesound' | 'jamendo' | 'wikimedia_audio' | 'openverse'", 'Search surface. all prioritizes Freesound.', {default: 'all'}),
     localDirectories: parameter('string[]', 'User-approved local folders.'),
     includeBundled: parameter('boolean', 'Include bundled candidates in all/local search.', {default: false}),
-    source: parameter('string', 'Optional Openverse source filter.'),
+    source: parameter('string', 'Optional Openverse source filter when provider is openverse.'),
     minDuration: parameter('number', 'Minimum seconds.', {accepted: '>= 0'}),
     maxDuration: parameter('number', 'Maximum seconds.', {accepted: '> 0'}),
     allowUnknownLocalLicense: parameter('boolean', 'Expose unknown-license local files as candidates.', {default: false}),
@@ -102,9 +102,9 @@ export const toolHelpEntries: HelpEntry[] = [
     path: parameter('path string', 'Local audio candidate.', {required: true}),
     reviewDir: parameter('path string', 'Optional waveform and spectrogram directory.'),
   }),
-  tool('search_free_videos', 'Search Free Video Footage', 'Search user-approved local folders, Wikimedia Commons, and optional Pexels footage.', {
+  tool('search_free_videos', 'Search Free Video Footage', 'Search user-approved local folders, optional Pexels and Pixabay footage, and Wikimedia Commons.', {
     query: parameter('string', 'Visual subject, action, mood, and shot type.'),
-    provider: parameter("'all' | 'local' | 'wikimedia' | 'pexels'", 'Search provider.', {default: 'all'}),
+    provider: parameter("'all' | 'local' | 'pexels' | 'pixabay' | 'wikimedia'", 'Search provider.', {default: 'all'}),
     localDirectories: parameter('string[]', 'User-approved local folders.'),
     orientation: parameter("'landscape' | 'portrait' | 'square'", 'Required composition orientation.'),
     minDuration: parameter('number', 'Minimum seconds.', {accepted: '>= 0'}),
@@ -114,15 +114,15 @@ export const toolHelpEntries: HelpEntry[] = [
     pageSize: parameter('integer', 'Results requested.', {default: 12, accepted: '1..50'}),
     includeShareAlike: parameter('boolean', 'Allow compatible share-alike results.', {default: false}),
   }, {pitfalls: ['Inspect the preview and source page; titles are insufficient.', 'Preserve attribution and share-alike obligations.']}),
-  tool('download_free_video', 'Download Free Video Footage', 'Download selected Wikimedia or Pexels footage with machine-readable credits.', {
-    provider: parameter("'wikimedia' | 'pexels'", 'Provider returned by search.', {required: true}),
+  tool('download_free_video', 'Download Free Video Footage', 'Download selected Wikimedia, Pexels, or Pixabay footage with machine-readable credits.', {
+    provider: parameter("'wikimedia' | 'pexels' | 'pixabay'", 'Provider returned by search.', {required: true}),
     id: parameter('numeric string', 'Provider media id.', {required: true}),
     outputDir: parameter('path string', 'Licensed source-media directory.', {required: true}),
     includeShareAlike: parameter('boolean', 'Confirm share-alike acceptance.', {default: false}),
   }),
-  tool('search_free_assets', 'Search Free Visual Assets', 'Search licensed local, Openverse, Wikimedia, and optional Pexels images, SVGs, and animations.', {
+  tool('search_free_assets', 'Search Free Visual Assets', 'Search licensed local, Pexels, Pixabay, Openverse, and Wikimedia images, SVGs, and animations.', {
     query: parameter('string', 'Visual subject, style, and intended use.'),
-    provider: parameter("'all' | 'local' | 'openverse' | 'wikimedia' | 'pexels'", 'Search provider.', {default: 'all'}),
+    provider: parameter("'all' | 'local' | 'pexels' | 'pixabay' | 'openverse' | 'wikimedia'", 'Search provider.', {default: 'all'}),
     localDirectories: parameter('string[]', 'User-approved local folders.'),
     kind: parameter("'all' | 'image' | 'svg' | 'animation'", 'Asset kind.', {default: 'all'}),
     orientation: parameter("'landscape' | 'portrait' | 'square'", 'Desired orientation.'),
@@ -132,7 +132,7 @@ export const toolHelpEntries: HelpEntry[] = [
     includeShareAlike: parameter('boolean', 'Allow compatible share-alike results.', {default: false}),
   }),
   tool('download_free_asset', 'Download Free Visual Asset', 'Download a selected free visual asset with source and license manifests.', {
-    provider: parameter("'openverse' | 'wikimedia' | 'pexels'", 'Provider returned by search.', {required: true}),
+    provider: parameter("'openverse' | 'wikimedia' | 'pexels' | 'pixabay'", 'Provider returned by search.', {required: true}),
     id: parameter('string', 'Exact provider media id.', {required: true}),
     outputDir: parameter('path string', 'Licensed asset directory.', {required: true}),
     includeShareAlike: parameter('boolean', 'Confirm share-alike acceptance.', {default: false}),
@@ -156,22 +156,27 @@ export const toolHelpEntries: HelpEntry[] = [
     workers: parameter('integer', 'Renderer workers.', {accepted: '1..12'}),
     keepFrames: parameter('boolean', 'Retain intermediate frames.'),
   }, {avoidWhen: ['Starting a new code-first Revideo composition.']}),
-  tool('probe_video', 'Probe Rendered Video', 'Read duration, dimensions, frame rate, codecs, file size, and audio presence.', {
+  tool('probe_video', 'Probe Rendered Video', 'Read duration, dimensions, frame rate, codecs, file size, audio-stream presence, and whether that stream contains audible signal.', {
     videoPath: parameter('path string', 'Rendered media file.', {required: true}),
-  }),
+  }, {notes: 'hasAudio reports audible signal. hasAudioStream reports the technical stream, and audioIsSilent distinguishes a silent AAC/other stream from audible content.'}),
   tool('extract_review_frames', 'Extract Review Frames', 'Extract exact still frames for focused visual inspection.', {
     videoPath: parameter('path string', 'Rendered video.', {required: true}),
     outputDir: parameter('path string', 'Review-frame directory.', {required: true}),
     times: parameter('number[]', 'Timestamps in seconds.', {required: true, accepted: '1..20 values, each >= 0'}),
   }),
-  tool('create_visual_review_pack', 'Create Visual Review Pack', 'Create overview sheets, transition strips, anomaly candidates, and the mandatory visual checklist.', {
+  tool('create_visual_review_pack', 'Create Visual Review Pack', 'Create overview sheets, exact settle frames, transition strips, source/motion lint, focal-motion candidates, and an optional annotated layout-audit render.', {
     videoPath: parameter('path string', 'Full render or changed-range render.', {required: true}),
     outputDir: parameter('path string', 'Fresh review directory.', {required: true}),
     overviewInterval: parameter('number', 'Seconds between overview samples.', {default: 2, accepted: '0.25..10'}),
     transitionTimes: parameter('number[]', 'Every authored cut or transition boundary.', {default: [], accepted: '0..30 values'}),
     transitionWindow: parameter('number', 'Seconds sampled around each transition.', {default: 1, accepted: '0.25..3'}),
     transitionFps: parameter('number', 'Strip sampling rate.', {default: 4, accepted: '1..12'}),
-  }, {workflow: ['Generate after every full render or changed range.', 'Read every returned sheet.', 'Document and correct material anomalies.', 'Regenerate after correction.'], related: ['tool:read_visual_files', 'topic:visual-review']}),
+    projectFile: parameter('path string', 'Revideo project.tsx. Supplying it enables source lint and the isolated annotated layout-audit render.', {recommended: 'Always pass for advanced productions.'}),
+    motionPlanPath: parameter('path string', 'motion-plan.json. Defaults beside projectFile and enables declared settle frames plus focal-motion analysis.'),
+    reviewRenderVariables: parameter('object', 'The same runtime variables used by the final render. The audit adds its private overlay variable.'),
+    layoutAuditFps: parameter('number', 'Sampling rate for detecting issue-marker runs.', {default: 6, accepted: '2..12'}),
+    maxLayoutEvidence: parameter('integer', 'Maximum exact annotated layout screenshots.', {default: 12, accepted: '1..30'}),
+  }, {workflow: ['Generate after every full render or changed range and pass projectFile.', 'Open evidenceFrames first; the annotated frame states the element ids and source labels.', 'Classify every candidate as intentional or material.', 'Then read every settled frame, overview sheet, and transition sheet.', 'Correct material anomalies and regenerate after correction.'], pitfalls: ['Only registered critical elements can produce layout evidence.', 'Low focal motion is a candidate, not an automatic failure.', 'Use the same reviewRenderVariables as the delivery render.'], related: ['tool:read_visual_files', 'topic:visual-review', 'topic:motion-continuity', 'topic:layout-audit']}),
   tool('read_visual_files', 'Read Review Sheets and Visual Assets', 'Return local images as MCP image content for direct vision inspection.', {
     paths: parameter('string[]', 'PNG, JPEG, WebP, GIF, or SVG paths.', {required: true, accepted: '1..12 files; 15 MB each; 40 MB total'}),
   }, {pitfalls: ['Reading the manifest is not equivalent to visually inspecting the images.']}),
@@ -198,7 +203,7 @@ export const toolHelpEntries: HelpEntry[] = [
   tool('get_motion_component', 'Get Motion Component Summary', 'Get compact catalog metadata for one component.', {
     id: parameter('string', 'Exact component id from search_motion_components.', {required: true}),
   }, {notes: 'For parameter types, calibrated values, failure modes, and validation, call help with component:<id>.', related: ['tool:help']}),
-  tool('scaffold_advanced_video', 'Scaffold Revideo Composition', 'Create one neutral code-first project with reusable primitives and no predesigned visual style.', {
+  tool('scaffold_advanced_video', 'Scaffold Revideo Composition', 'Create one minimal neutral code-first project with only the composition entry, blank scene, review registry, format profile, and motion plan.', {
     outputDir: parameter('path string', 'New project directory.', {required: true}),
     name: parameter('string', 'Production name.', {required: true}),
     format: parameter("'landscape' | 'portrait' | 'square'", 'Composition format.'),
@@ -206,7 +211,30 @@ export const toolHelpEntries: HelpEntry[] = [
     width: parameter('integer', 'Custom width.', {accepted: '640..3840'}),
     height: parameter('integer', 'Custom height.', {accepted: '360..3840'}),
     fps: parameter('integer', 'Frame rate.', {default: 30, accepted: '24..60'}),
-  }, {pitfalls: ['Scaffold once. Do not render it as a template and replace everything later.']}),
+  }, {
+    workflow: ['Scaffold once.', 'Search the motion catalog for the current shot.', 'Call add_advanced_video_helpers with only the selected source groups.'],
+    pitfalls: ['Do not render the blank scaffold as a template and replace everything later.', 'Do not add every optional helper preemptively.'],
+    related: ['tool:add_advanced_video_helpers', 'tool:search_motion_components'],
+  }),
+  tool('add_advanced_video_helpers', 'Add Advanced Video Source Helpers', 'Install only the optional editable helper files selected for this production, resolving their source dependencies without overwriting authored files.', {
+    projectDir: parameter('path string', 'Scaffolded project directory.', {required: true}),
+    helpers: parameter('AdvancedVideoHelperId[]', 'Selected helper groups.', {
+      required: true,
+      accepted: 'ambient, camera, captions, format, kinetic, liquid-glass-text, motion-library, optical-glass, paint, procedural, scene-tree, three-effects, transitions, vector-motion',
+    }),
+  }, {
+    workflow: ['Search by narrative need.', 'Choose the smallest useful set.', 'Add helpers once; required source dependencies are included automatically.', 'Import and customize only what the shot uses.'],
+    pitfalls: ['This is an optional source installer, not a requirement to use library code.', 'Existing project files are preserved, so local edits are never replaced.'],
+    related: ['tool:scaffold_advanced_video', 'tool:search_motion_components', 'tool:get_motion_component'],
+  }),
+  tool('validate_motion_plan', 'Validate Motion Plan', 'Validate the exact motion-plan schema and semantic timeline before the first render, including shot-boundary continuity, unexplained gaps, settle moments, and normalized focal regions.', {
+    motionPlanPath: parameter('path string', 'Generated motion-plan.json after the AI has completed it.', {required: true}),
+  }, {
+    workflow: ['Complete direction, shots, regions, review moments, and intentional stillness.', 'For every non-final shot declare boundaryToNext as continuous, motivated-cut, or intentional-stop.', 'Call this tool before authoring or rendering.', 'Repair every error by its exact field path and validate again.'],
+    pitfalls: ['Continuity does not require constant movement: motivated cuts and intentional stops are valid when their intent is explicit.', 'Warnings do not invalidate the plan, but missing settle moments still weaken review evidence.'],
+    validation: ['valid=true before the first render.', 'Every non-final shot has an explained boundary.', 'No unassigned timeline gap remains.'],
+    related: ['tool:scaffold_advanced_video', 'topic:motion-continuity', 'tool:render_advanced_video'],
+  }),
   tool('list_advanced_video_files', 'List Advanced Video Files', 'List editable files before reading or patching an existing project.', {
     projectDir: parameter('path string', 'Scaffolded project directory.', {required: true}),
   }),
@@ -237,7 +265,7 @@ export const toolHelpEntries: HelpEntry[] = [
     stallTimeoutSeconds: parameter('integer', 'Maximum time without render progress.', {default: 300, accepted: '10..3600'}),
     maxRenderSeconds: parameter('integer', 'Absolute render deadline.', {default: 7200, accepted: '30..86400'}),
   }, {
-    prerequisites: ['Before Chromium starts, automatic preflight checks TypeScript syntax, unresolved names, broken imports/exports, missing properties, and Revideo 0.11 nested JSX collections that would render invisibly.'],
+    prerequisites: ['When motion-plan.json exists beside project.tsx, it must pass validate_motion_plan before Chromium starts.', 'Automatic source preflight checks TypeScript syntax, unresolved names, broken imports/exports, missing properties, and Revideo 0.11 nested JSX collections that would render invisibly.'],
     workflow: ['Render.', 'If the MCP result has isError=true, read diagnostics[] and patch the exact file, line, column, and codeFrame before retrying.', 'For REV011_NESTED_JSX_FRAGMENT_MAP or REV011_NESTED_JSX_ARRAY_MAP, load topic:revideo-scene-tree.', 'Probe the result.', 'Create and directly inspect a fresh review pack.'],
     pitfalls: ['Do not retry an unchanged source after preflight identifies a deterministic code error.', 'The focused type preflight intentionally checks render-blocking syntax/names/imports rather than rejecting every strict TypeScript style mismatch accepted by Revideo.'],
     validation: ['Invalid authored names and imports fail before a Chromium process is created.', 'Every reported TypeScript or runtime source location includes file, line, column, and a local code frame when the source is readable.'],
@@ -257,15 +285,16 @@ export const toolHelpEntries: HelpEntry[] = [
   tool('replace_video_range', 'Replace Final Video Range', 'Replace one exact interval in a final MP4 with a separately reviewed replacement.', {
     original: parameter('path string', 'Accepted base MP4.', {required: true}), replacement: parameter('path string', 'Reviewed replacement interval.', {required: true}), output: parameter('MP4 path string', 'New final.', {required: true}), start: parameter('number', 'Range start.', {required: true, accepted: '>= 0'}), end: parameter('number', 'Range end.', {required: true, accepted: '> start'}),
   }, {prerequisites: ['Replacement duration and boundaries must match the intended timeline.', 'Review the changed range before replacement.']}),
-  tool('clean_delivery_output', 'Clean Final Delivery Output', 'Verify accepted finals, reduce the delivery directory to those files, and remove disposable production artifacts from the wider project.', {
-    outputDir: parameter('path string', 'Delivery-only directory.', {required: true}),
+  tool('clean_delivery_output', 'Clean Final Delivery Output', 'Verify accepted finals and recursively remove disposable project artifacts, with safe handling for external or shared output directories.', {
+    outputDir: parameter('path string', 'Directory containing the accepted final. It may be outside projectDir.', {required: true}),
     keepFiles: parameter('string[]', 'Exact final filenames to preserve.', {required: true, accepted: '1..20'}),
     projectDir: parameter('path string', 'Exact root of this one editable production. When supplied, known review, audit, preview, render-intermediate, Vite-cache, and temporary directories are removed recursively.'),
     temporaryPaths: parameter('string[]', 'Additional project-relative files or directories created only for this production review/render cycle.', {accepted: '0..200', constraints: ['Requires projectDir.', 'Never include source, public, assets, media, music, video, capture, reference, license, attribution, font, node_modules, or delivery paths.']}),
+    outputMode: parameter("'owned' | 'shared'", 'Output-directory cleanup policy. External outputDir defaults to shared; project-contained output defaults to owned. shared never removes sibling outputs.', {recommended: 'Use shared for a host-level outputs directory and owned only for a dedicated per-production delivery directory.'}),
   }, {
-    workflow: ['Track every nonstandard review, audit, preview, and intermediate-render path as it is created.', 'Pass the exact projectDir and those relative paths after the final probe and visual approval.', 'Verify the result reports the expected kept finals and removedProjectArtifacts.', 'Confirm the editable composition, render inputs, licenses, and attribution remain.'],
-    pitfalls: ['Never point projectDir at a parent containing multiple unrelated productions.', 'Do not list user-provided or irreplaceable inputs as temporaryPaths.', 'Without projectDir, cleanup remains limited to the delivery directory for backward compatibility.'],
-    validation: ['Every keepFiles entry existed before any deletion began.', 'The delivery directory contains only the named finals.', 'No disposable review, audit, preview, render-intermediate, or cache directory remains in the production root.', 'Source code, public assets, captures, selected media, licenses, attribution, and references remain available for a later rerender.'],
+    workflow: ['Verify the accepted final with probe_video.', 'Track every nonstandard review, audit, preview, and intermediate-render path as it is created.', 'Pass projectDir independently from outputDir; no relocation is required.', 'Use shared for a common outputs folder, or owned for a dedicated delivery folder.', 'The cleaner recursively discovers generated directories at any project depth and preserves protected render inputs.', 'Verify outputMode, kept finals, removed siblings, and removedProjectArtifacts in the result.'],
+    pitfalls: ['Never point projectDir at a parent containing multiple unrelated productions.', 'Do not list user-provided or irreplaceable inputs as temporaryPaths.', 'shared verifies keepFiles but intentionally leaves unrelated output siblings untouched.', 'Never use the project root itself as an owned output directory.'],
+    validation: ['Every keepFiles entry existed before any deletion began.', 'owned output contains only the named finals; shared output retains all siblings.', 'No disposable review, audit, preview, render-intermediate, or cache directory remains in the production root.', 'Source code, public assets, captures, selected media, licenses, attribution, and references remain available for a later rerender.'],
   }),
 ];
 
@@ -451,10 +480,10 @@ const topicHelpEntries: HelpEntry[] = [
   },
   {
     kind: 'topic', id: 'camera-rigs', title: 'Camera Rigs and Custom Paths',
-    summary: 'Seven catalog camera systems have executable helpers in camera.ts, plus cameraPath for unrestricted authored keyframes and Three.js as the true-3D escape hatch.',
-    workflow: ['Choose the focal subject and overscan first.', 'Load exact component help.', 'Create separate world, pose, and ambient rigs when signals would conflict.', 'Customize or replace the helper when its path is not the story path.', 'Use Three.js for physical perspective, orbit, lighting, or depth of field.'],
+    summary: 'Camera helpers include velocity-preserving continuousCameraPath, explicitly segmented cameraPath, ambient rigs, and Three.js as the true-3D escape hatch.',
+    workflow: ['Choose the focal subject and overscan first.', 'Use continuousCameraPath when momentum should cross multiple beats; use cameraPath only for intentional full arrivals/stops.', 'Create separate world, pose, and ambient rigs when signals would conflict.', 'Customize or replace the helper when its path is not the story path.', 'Use Three.js for physical perspective, orbit, lighting, or depth of field.'],
     validation: ['The camera arrives before the semantic event.', 'The focal subject remains legible and inside safe bounds.', 'No exposed frame edges, frozen holds, signal conflicts, or digital-zoom-only feel.'],
-    related: ['topic:custom-motion', 'component:dolly-in', 'component:focus-track', 'component:orbit-sweep'],
+    related: ['topic:custom-motion', 'topic:motion-continuity', 'component:continuous-camera-path', 'component:dolly-in', 'component:focus-track', 'component:orbit-sweep'],
   },
   {
     kind: 'topic', id: 'custom-motion', title: 'Unrestricted Custom Motion',
@@ -516,10 +545,28 @@ const topicHelpEntries: HelpEntry[] = [
   },
   {
     kind: 'topic', id: 'visual-review', title: 'Visual Review Gate',
-    summary: 'A successful render is not a quality pass; delivery requires direct inspection of overview and transition sheets.',
-    workflow: ['Probe the render.', 'Create a fresh review pack with all boundaries.', 'Read every generated image.', 'Record anomalies.', 'Patch source and rerender affected ranges.', 'Regenerate the relevant pack.'],
-    validation: ['Typography, spacing, clipping, safe areas, camera continuity, transitions, cursor causality, material effects, and final resolution all pass.'],
-    related: ['tool:create_visual_review_pack', 'tool:read_visual_files'],
+    summary: 'A successful render is not a quality pass; delivery requires direct inspection of exact evidence, settle frames, overview sheets, and transition strips.',
+    workflow: ['Probe the render.', 'Create a fresh review pack with projectFile, motion-plan, render variables, and all boundaries.', 'Open exact evidenceFrames first and classify every candidate as intentional or material.', 'Inspect settle frames, overview sheets, and transition strips.', 'Patch source and rerender affected ranges.', 'Regenerate the relevant pack.'],
+    validation: ['Registered overflow, collisions, center targets, typography, spacing, safe areas, focal continuity, transitions, cursor causality, material effects, and final resolution all pass or are explicitly accepted as intentional.'],
+    related: ['tool:create_visual_review_pack', 'tool:read_visual_files', 'topic:layout-audit', 'topic:motion-continuity'],
+  },
+  {
+    kind: 'topic', id: 'layout-audit', title: 'Registered Layout Audit',
+    summary: 'Register critical Revideo refs once, then let the Review Pack render an isolated overlay that marks exact overflow, collision, and centering candidates with source labels.',
+    sourceExports: ['createReviewRegistry', 'ReviewOverlay'],
+    workflow: ['Create one registry from format-profile dimensions and safeAreaPixels.', 'Register every critical text, logo, CTA, caption, and focal product ref with a unique id and source label.', 'Declare frame, safe-area, or custom-region constraints.', 'Declare permitted overlaps explicitly.', 'For intended centered elements, choose frame/safe-area/custom target, axis, tolerance, and optional optical offset.', 'Keep ReviewOverlay last in the scene tree.', 'Pass projectFile and the final render variables to create_visual_review_pack.'],
+    pitfalls: ['Unregistered elements cannot be audited.', 'A mathematical center is not automatically the perceptual center; use opticalOffset only after inspecting the marked frame.', 'Decorations should use role=decoration or collision=false.', 'The audit overlay is render-only and does not alter the delivery render.'],
+    validation: ['Every layout evidence image is visually classified.', 'Source labels point directly to the authored ref.', 'Allowed overlaps are explicit rather than silently ignored.', 'Normal render contains no overlay.'],
+    related: ['tool:create_visual_review_pack', 'topic:text-layout', 'topic:visual-review'],
+  },
+  {
+    kind: 'topic', id: 'motion-continuity', title: 'Focal Motion Continuity',
+    summary: 'Continuity means the intended subject/camera motion stays alive across beats; moving only ambient background pixels does not hide a focal stop.',
+    sourceExports: ['continuousCameraPath', 'continuousParticlePath'],
+    workflow: ['Complete motion-plan.json before authoring.', 'Declare the subject region and movement of background, midground, subject, foreground, and camera for each logical shot inside the master scene.', 'For every non-final shot declare boundaryToNext as continuous, motivated-cut, or intentional-stop, with its carrier and intent.', 'Call validate_motion_plan before rendering.', 'Bridge velocity through intermediate beats with one continuous path when the direction calls for momentum.', 'Declare genuinely intentional stillness with a reason.', 'Review every low-motion evidence frame against the declared intent.'],
+    pitfalls: ['Per-segment ease-in-out reaches zero velocity at every keyframe.', 'Long waitFor calls can stop the focal idea while ambient layers continue.', 'Constant movement everywhere weakens hierarchy; stillness remains valid when intentional.'],
+    validation: ['No unexplained focal stop or shot boundary.', 'Velocity direction changes and motivated cuts feel intentional.', 'Intentional stillness is declared and visually legible as a choice.', 'Evidence frames are classified rather than blindly treated as failures.'],
+    related: ['tool:validate_motion_plan', 'component:continuous-camera-path', 'component:continuous-particle-path', 'topic:camera-rigs', 'topic:visual-review'],
   },
   {
     kind: 'topic', id: 'ambient-motion', title: 'Continuous Ambient Motion',

@@ -205,15 +205,15 @@ The AI can read the existing source, edit only the affected scene or interval, r
 - Clean screenshots and recordings from local or remote applications.
 - AI-controlled clicks, form filling, key presses, hover, selection, scrolling, navigation, and mouse movement.
 - Recursive search across user-authorized local directories.
-- Music search through local folders and Openverse, including download and attribution manifests, without a default or fallback track.
+- Music search prioritizing Freesound through Openverse, then approved local folders, Jamendo, and Wikimedia Audio, including download and attribution manifests without a bundled default or fallback track.
 - Music comparison through loudness, energy-curve, peak, silence, waveform, and spectrogram analysis.
-- Footage search through Wikimedia Commons and, optionally, Pexels.
-- Image and asset search through Openverse, Wikimedia Commons, and, optionally, Pexels.
-- Openverse and Wikimedia require no API key. Pexels is free but requires `PEXELS_API_KEY`.
-- Images, SVG, vector paths, masks, native Revideo linear/radial gradients, filters, shaders, particles, Three.js, and video clips inside the same composition. The scaffold includes `paint.ts` helpers for native coordinates and CSS-angle conversion; preflight rejects unsupported CSS `linear-gradient(...)`/`radial-gradient(...)` paint strings with contextual help before Chromium starts.
+- Footage search through approved local folders, Wikimedia Commons and, optionally, Pexels and Pixabay.
+- Image and asset search through approved local folders, Openverse, Wikimedia Commons and, optionally, Pexels and Pixabay.
+- Openverse and Wikimedia require no API key. Pexels requires `PEXELS_API_KEY`; Pixabay requires `PIXABAY_API_KEY`.
+- Images, SVG, vector paths, masks, native Revideo linear/radial gradients, filters, shaders, particles, Three.js, and video clips inside the same composition. Optional `paint.ts` helpers provide native coordinates and CSS-angle conversion; preflight rejects unsupported CSS `linear-gradient(...)`/`radial-gradient(...)` paint strings with contextual help before Chromium starts.
 - Native landscape, portrait, and square composition profiles with adaptive stages, focal product crops, and editable safe-area defaults for TikTok, Instagram Reels, and YouTube Shorts. Vertical output is recomposed rather than produced by shrinking a landscape scene.
 - A searchable motion vocabulary spanning backgrounds, formats, layouts, captions, typography, product presentation, shapes, transitions, camera, cursors, particles, and effects; every item can be restyled, combined, or replaced with custom TypeScript.
-- Ten executable transition rigs and seven executable camera rigs live in `transitions.ts` and `camera.ts`, with typed controls for vectors, overlap, blur, depth, curves, targets, bounds, perspective, deterministic seeds, and timing. They are editable starting points—not templates or constraints—and the AI may ignore them, rewrite them, combine them, or author an entirely original Revideo, SVG, GLSL, or Three.js system.
+- Ten executable transition rigs plus segmented and velocity-preserving continuous camera paths live in `transitions.ts` and `camera.ts`, with typed controls for vectors, overlap, blur, depth, curves, targets, bounds, perspective, deterministic seeds, and timing. They are editable starting points—not templates or constraints—and the AI may ignore them, rewrite them, combine them, or author an entirely original Revideo, SVG, GLSL, or Three.js system.
 - Kinetic typography by block, line, word, or character, including tracking, blur, rise, wipe, typewriter, erase/rewrite, swaps, and typography-driven masks.
 - Reusable destination-texture optical glass for authored surfaces plus liquid-glass glyph lenses with refraction, dispersion, responsive highlights, and luminance-aware text contrast.
 - Speech-following captions from SRT, WebVTT, cue JSON, or exact word-timing JSON, with word-follow, karaoke, punch, phrase-window, speaker, and adaptive caption-lane systems. Cue-only timestamps are labeled as approximate interpolation instead of being presented as exact alignment.
@@ -225,17 +225,17 @@ Online results can only be selected when their license is known and allowed. Eve
 
 ## MCP tools
 
-The server exposes 37 tools:
+The server exposes 39 tools:
 
 - Progressive documentation: `help`. Call it without arguments for a compact index, with `query` for short candidates, or with an exact target such as `component:liquid-glass-text`, `transition:camera-zoom-through`, or `tool:render_advanced_video` for parameter types, runtime defaults, calibrated ranges where available, choreography, examples, pitfalls, source signatures, and validation rules.
 - Product: `inspect_saas`, `capture_saas`, `record_saas_flows`.
 - Music: `list_music`, `generate_music_library`, `search_music`, `download_music`, `analyze_music`, `mix_music`.
 - Free media: `search_free_videos`, `download_free_video`, `search_free_assets`, `download_free_asset`.
 - Formats and captions: `list_format_profiles`, `prepare_caption_timing`, `review_caption_timing`.
-- Motion composition: `list_motion_capabilities`, `search_motion_components`, `get_motion_component`, `scaffold_advanced_video`, `list_advanced_video_files`, `read_advanced_video_file`, `save_advanced_video_file`, `patch_advanced_video_file`, `render_advanced_video`.
+- Motion composition: `list_motion_capabilities`, `search_motion_components`, `get_motion_component`, `scaffold_advanced_video`, `add_advanced_video_helpers`, `validate_motion_plan`, `list_advanced_video_files`, `read_advanced_video_file`, `save_advanced_video_file`, `patch_advanced_video_file`, `render_advanced_video`.
 - Editing: `edit_capture_image`, `edit_video`, `replace_video_range`.
 - Legacy JSON compatibility: `validate_video_plan`, `render_video`.
-- Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`.
+- Visual QA: `probe_video`, `extract_review_frames`, `create_visual_review_pack`, `read_visual_files`. Advanced review packs can consume the generated `motion-plan.json`, run source/motion lint, capture declared settle moments, measure focal-motion continuity, and produce exact annotated frames for registered overflow, collision, and centering candidates through the render-only `review.tsx` overlay.
 - Delivery: `clean_delivery_output`.
 
 The contextual `help` tool keeps routine calls small: the full catalog is never injected automatically, and exact documentation is returned only for the requested target. The `create-ai-promo-video` MCP prompt, the `ai-promo://director-guide` and `ai-promo://motion-library` resources, and ten detailed reference resources make the complete workflow available even without native Skill discovery. Captures and review sheets are returned as MCP image content, allowing a vision-capable model to inspect the result. Advanced renders publish live phase and percentage updates through MCP progress and logging notifications. Each render runs in an isolated process group, so cancellation, startup failure, stalls, and timeouts clean up its Chromium and Vite processes automatically.
@@ -251,7 +251,7 @@ node plugins/ai-promo-video/dist/cli.js capture ./capture.local.json
 node plugins/ai-promo-video/dist/cli.js record ./capture.local.json
 
 # Search for free music and media
-node plugins/ai-promo-video/dist/cli.js music:search "focused technology" --provider openverse
+node plugins/ai-promo-video/dist/cli.js music:search "focused technology" --provider all
 node plugins/ai-promo-video/dist/cli.js music:analyze ./music/candidate.mp3 --review-dir ./music-review
 node plugins/ai-promo-video/dist/cli.js video:search --query "software team" --provider all --orientation landscape
 node plugins/ai-promo-video/dist/cli.js asset:search --query "abstract technology" --provider all --kind image
@@ -261,6 +261,8 @@ node plugins/ai-promo-video/dist/cli.js motion:capabilities
 node plugins/ai-promo-video/dist/cli.js motion:search --query "camera follows interface assembly" --categories camera,product
 node plugins/ai-promo-video/dist/cli.js format:list
 node plugins/ai-promo-video/dist/cli.js advanced:init ./advanced --name "Launch promo" --format portrait --platform tiktok
+node plugins/ai-promo-video/dist/cli.js advanced:add ./advanced --helpers camera,procedural
+node plugins/ai-promo-video/dist/cli.js advanced:validate-plan ./advanced/motion-plan.json
 node plugins/ai-promo-video/dist/cli.js advanced:render ./advanced/project.tsx --output ./output/promo.mp4
 
 # Prepare captions that follow speech and review their timing

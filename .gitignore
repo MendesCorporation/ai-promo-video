@@ -52,3 +52,7 @@ plugins/ai-promo-video/examples/component-showcase/**
 !plugins/ai-promo-video/examples/auto-superacao/output/AINDA-auto-superacao-final.mp4
 !plugins/ai-promo-video/examples/qanode/output/menu-assembly/
 !plugins/ai-promo-video/examples/qanode/output/menu-assembly/qanode-menu-assembly-final.mp4
+promo-video
+videos
+
+

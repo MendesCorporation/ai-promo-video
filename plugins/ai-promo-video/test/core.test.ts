@@ -2,7 +2,7 @@ import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from '../src/advanced/engine.js';
+import { addAdvancedVideoHelpers, advancedVideoHelperIds, listAdvancedProjectFiles, motionCapabilities, patchAdvancedProjectFile, readAdvancedProjectFile, renderAdvancedProject, scaffoldAdvancedProject } from '../src/advanced/engine.js';
 import { validateAdvancedProjectSource, validateRevideoSceneSource } from '../src/advanced/source-validation.js';
 import {AdvancedTypecheckError, validateAdvancedProjectTypes} from '../src/advanced/typecheck.js';
 import {rendererFailureReport, serializeAdvancedError} from '../src/advanced/diagnostics.js';
@@ -10,6 +10,7 @@ import { flattenSceneNodes } from '../assets/revideo-template/scene-tree.js';
 import { listAudioTracks } from '../src/audio/catalog.js';
 import { analyzeMusic } from '../src/audio/analyze.js';
 import { searchLocalMusic } from '../src/audio/search.js';
+import { openverseAudioExtension } from '../src/audio/openverse.js';
 import { motionComponentLibrary, searchMotionComponents } from '../src/advanced/library.js';
 import { resolveVideoFormat } from '../src/advanced/formats.js';
 import { prepareCaptionTiming, reviewCaptionTiming } from '../src/captions/timing.js';
@@ -17,6 +18,7 @@ import { editImage, musicEnvelopeExpression } from '../src/media/edit.js';
 import { assessFreeLicense } from '../src/library/license.js';
 import { searchLocalAssets, searchLocalVideos } from '../src/library/local.js';
 import { normalizePexelsPhoto, normalizePexelsVideo } from '../src/library/pexels.js';
+import { normalizePixabayImage, normalizePixabayVideo } from '../src/library/pixabay.js';
 import { CaptureSpecSchema, VideoSpecSchema } from '../src/types.js';
 import { validateSpec } from '../src/commands.js';
 import { cleanDeliveryOutput } from '../src/media/cleanup.js';
@@ -34,6 +36,7 @@ import {
 import { aggregateWorkerProgress } from '../src/advanced/render-protocol.js';
 import { getContextualHelp, toolHelpEntries } from '../src/help/catalog.js';
 import { attachSourceContracts, sourceApiContracts } from '../src/help/source-contract.js';
+import { lintAdvancedVideoQuality, MotionPlanSchema, validateMotionPlan, type MotionPlan } from '../src/advanced/motion-plan.js';
 
 function plan() {
   return {
@@ -97,6 +100,11 @@ describe('open music catalog', () => {
     expect(bundled.every((track) => track.provider === 'bundled')).toBe(true);
   });
 
+  it('normalizes Openverse mp32 declarations to a standard MP3 extension', () => {
+    expect(openverseAudioExtension('mp32')).toBe('.mp3');
+    expect(openverseAudioExtension('mp3')).toBe('.mp3');
+  });
+
   it('analyzes a candidate without recommending or selecting it', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ai-promo-music-review-'));
     const analysis = await analyzeMusic(join(import.meta.dirname, '../assets/audio/quiet-precision.wav'), directory);
@@ -117,6 +125,7 @@ describe('free visual media catalog', () => {
     expect(assessFreeLicense('CC BY-SA 4.0', { includeShareAlike: true })).toMatchObject({ selectable: true, requiresShareAlike: true });
     expect(assessFreeLicense('CC BY-NC 4.0').selectable).toBe(false);
     expect(assessFreeLicense('Pexels License')).toMatchObject({ selectable: true, requiresAttribution: false });
+    expect(assessFreeLicense('Pixabay Content License')).toMatchObject({ selectable: true, requiresAttribution: false });
   });
 
   it('normalizes free Pexels stock media without exposing the API key', () => {
@@ -134,6 +143,32 @@ describe('free visual media catalog', () => {
     });
     expect(video).toMatchObject({ provider: 'pexels', kind: 'video', width: 1920, license: 'Pexels License', requiresAttribution: false });
     expect(photo).toMatchObject({ provider: 'pexels', kind: 'image', title: 'Team planning', selectable: true });
+  });
+
+  it('normalizes free Pixabay video and image results with license metadata', () => {
+    const video = normalizePixabayVideo({
+      id: 88,
+      pageURL: 'https://pixabay.com/videos/88/',
+      tags: 'software, team, success',
+      duration: 12,
+      user: 'Creator',
+      videos: {
+        large: { url: 'https://cdn.example/4k.mp4', width: 4096, height: 2160 },
+        medium: { url: 'https://cdn.example/hd.mp4', width: 1920, height: 1080, thumbnail: 'https://cdn.example/poster.jpg' },
+      },
+    });
+    const image = normalizePixabayImage({
+      id: 99,
+      pageURL: 'https://pixabay.com/photos/99/',
+      tags: 'technology, abstract',
+      user: 'Photographer',
+      imageWidth: 2400,
+      imageHeight: 1600,
+      largeImageURL: 'https://cdn.example/image.jpg',
+      webformatURL: 'https://cdn.example/preview.jpg',
+    });
+    expect(video).toMatchObject({ provider: 'pixabay', kind: 'video', width: 1920, license: 'Pixabay Content License', selectable: true });
+    expect(image).toMatchObject({ provider: 'pixabay', kind: 'image', width: 2400, requiresAttribution: false, selectable: true });
   });
 
   it('searches licensed local videos and assets while excluding unknown-license files', async () => {
@@ -193,12 +228,45 @@ describe('advanced project source', () => {
     const project = await scaffoldAdvancedProject({ outputDir: directory, name: 'Unique launch', format: 'portrait', platform: 'tiktok' });
     await patchAdvancedProjectFile(directory, 'scene.tsx', [{ find: '// Replace this pause with the authored scene timeline.', replace: '// Authored production timeline begins here.' }]);
     const source = await readFile(project.sceneFile, 'utf8');
+    const formatProfile = JSON.parse(await readFile(join(directory, 'format-profile.json'), 'utf8')) as { width: number; height: number; platform: string; safeAreaPixels: { right: number } };
+    const motionPlan = MotionPlanSchema.parse(JSON.parse(await readFile(join(directory, 'motion-plan.json'), 'utf8')) as unknown);
+    const minimalFiles = await listAdvancedProjectFiles(directory);
+    expect(minimalFiles.files).toEqual(['format-profile.json', 'motion-plan.json', 'project.tsx', 'review.tsx', 'scene.tsx']);
+    await expect(access(join(directory, 'kinetic.ts'))).rejects.toThrow();
+    await expect(access(join(directory, 'motion-library.json'))).rejects.toThrow();
+    await expect(access(join(directory, 'public'))).rejects.toThrow();
+    expect(validateAdvancedProjectTypes(project.projectFile)).toMatchObject({valid: true, diagnostics: []});
+
+    const selectedHelpers = await addAdvancedVideoHelpers(directory, ['camera', 'procedural', 'optical-glass']);
+    expect(selectedHelpers).toMatchObject({
+      requested: ['camera', 'optical-glass', 'procedural'],
+      resolved: ['ambient', 'camera', 'motion-library', 'optical-glass', 'procedural', 'scene-tree'],
+      existing: [],
+    });
+    expect(selectedHelpers.added).toEqual([
+      'ambient.ts',
+      'camera.ts',
+      'motion-library.tsx',
+      'optical-glass.glsl',
+      'optical-glass.tsx',
+      'procedural.tsx',
+      'scene-tree.ts',
+    ]);
+    await expect(access(join(directory, 'captions.tsx'))).rejects.toThrow();
+    const cameraBeforeRepeat = await readFile(join(directory, 'camera.ts'), 'utf8');
+    const repeatedHelpers = await addAdvancedVideoHelpers(directory, ['camera']);
+    expect(repeatedHelpers.added).toEqual([]);
+    expect(repeatedHelpers.existing).toEqual(['ambient.ts', 'camera.ts', 'scene-tree.ts']);
+    expect(await readFile(join(directory, 'camera.ts'), 'utf8')).toBe(cameraBeforeRepeat);
+
+    await addAdvancedVideoHelpers(directory, advancedVideoHelperIds);
     const kinetic = await readFile(join(directory, 'kinetic.ts'), 'utf8');
     const librarySource = await readFile(join(directory, 'motion-library.tsx'), 'utf8');
     const paintSource = await readFile(join(directory, 'paint.ts'), 'utf8');
     const captionSource = await readFile(join(directory, 'captions.tsx'), 'utf8');
     const formatSource = await readFile(join(directory, 'format.tsx'), 'utf8');
     const proceduralSource = await readFile(join(directory, 'procedural.tsx'), 'utf8');
+    const reviewSource = await readFile(join(directory, 'review.tsx'), 'utf8');
     const ambientSource = await readFile(join(directory, 'ambient.ts'), 'utf8');
     const sceneTreeSource = await readFile(join(directory, 'scene-tree.ts'), 'utf8');
     const transitionSource = await readFile(join(directory, 'transitions.ts'), 'utf8');
@@ -209,12 +277,9 @@ describe('advanced project source', () => {
     const opticalGlassShader = await readFile(join(directory, 'optical-glass.glsl'), 'utf8');
     const liquidGlassTextSource = await readFile(join(directory, 'liquid-glass-text.tsx'), 'utf8');
     const liquidGlassTextShader = await readFile(join(directory, 'liquid-glass-text.glsl'), 'utf8');
-    const formatProfile = JSON.parse(await readFile(join(directory, 'format-profile.json'), 'utf8')) as { width: number; height: number; platform: string; safeAreaPixels: { right: number } };
-    const libraryManifest = JSON.parse(await readFile(join(directory, 'motion-library.json'), 'utf8')) as { count: number; components: unknown[] };
     expect(source).toContain('Authored production timeline begins here.');
     expect(source).not.toContain('Motion without templates.');
     expect(source).not.toMatch(/#7c5cff|#6366f1|cards/i);
-    await expect(access(join(directory, 'kinetic.ts'))).resolves.toBeUndefined();
     expect(kinetic).toContain('export function impactText');
     expect(kinetic).toContain('export function prepareTrackReveal');
     expect(kinetic).toContain('export function playTrackReveal');
@@ -233,6 +298,9 @@ describe('advanced project source', () => {
     expect(captionSource).toContain('export function* playWordFollowCaption');
     expect(formatSource).toContain('export function PortraitProductStage');
     expect(proceduralSource).toContain('export function FlowField');
+    expect(proceduralSource).toContain('export function* continuousParticlePath');
+    expect(reviewSource).toContain('export function createReviewRegistry');
+    expect(reviewSource).toContain('export function ReviewOverlay');
     expect(ambientSource).toContain('export function* ambientDrift');
     expect(ambientSource).toContain('export function ambientCamera');
     expect(ambientSource).toContain('export function* ambientParallax');
@@ -243,7 +311,7 @@ describe('advanced project source', () => {
     for (const name of ['directionalPush', 'zoomThrough', 'shapeWipe', 'objectCarry', 'directionalBlurCut', 'matchScale', 'organicMorphWipe', 'sharedElementBridge', 'whipPanBridge', 'displacementReveal']) {
       expect(transitionSource).toContain(`export function* ${name}`);
     }
-    for (const name of ['dollyIn', 'orbitSweep', 'focusTrack', 'perspectiveTilt', 'cameraPath']) {
+    for (const name of ['dollyIn', 'orbitSweep', 'focusTrack', 'perspectiveTilt', 'continuousCameraPath', 'cameraPath']) {
       expect(cameraSource).toContain(`export function* ${name}`);
     }
     for (const name of ['ambientCameraRig', 'ambientParallaxRig', 'parallaxPan']) {
@@ -258,15 +326,106 @@ describe('advanced project source', () => {
     expect(liquidGlassTextShader).toContain('destinationTexture');
     expect(formatProfile).toMatchObject({ width: 1080, height: 1920, platform: 'tiktok' });
     expect(formatProfile.safeAreaPixels.right).toBeGreaterThan(0);
+    expect(motionPlan).toMatchObject({version: 1, shots: [], intentionalStillness: []});
+    expect(project.motionPlanPath).toBe(join(directory, 'motion-plan.json'));
+    expect(project.motionPlanGuide).toMatchObject({
+      nextTool: 'validate_motion_plan',
+      boundaryToNext: {required: 'Every shot except the final shot.'},
+    });
     expect(project.formatProfile).toMatchObject({ id: 'portrait', width: 1080, height: 1920, platform: 'tiktok' });
-    expect(validateAdvancedProjectTypes(project.projectFile)).toMatchObject({valid: true, diagnostics: []});
-    expect(libraryManifest.count).toBe(motionComponentLibrary.length);
-    expect(libraryManifest.components).toHaveLength(motionComponentLibrary.length);
     expect(motionCapabilities.animation).toContain('text pushing text');
     const listed = await listAdvancedProjectFiles(directory);
-    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.json', 'motion-library.tsx', 'optical-glass.glsl', 'optical-glass.tsx', 'paint.ts', 'procedural.tsx', 'project.tsx', 'scene-tree.ts', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
+    expect(listed.files).toEqual(expect.arrayContaining(['ambient.ts', 'camera.ts', 'captions.tsx', 'format-profile.json', 'format.tsx', 'kinetic.ts', 'liquid-glass-text.glsl', 'liquid-glass-text.tsx', 'motion-library.tsx', 'motion-plan.json', 'optical-glass.glsl', 'optical-glass.tsx', 'paint.ts', 'procedural.tsx', 'project.tsx', 'review.tsx', 'scene-tree.ts', 'scene.tsx', 'three-effects.ts', 'transitions.ts', 'vector-motion.ts']));
     await expect(readAdvancedProjectFile(directory, 'scene.tsx')).resolves.toMatchObject({ source: expect.stringContaining('Authored production timeline begins here.') });
     await expect(readAdvancedProjectFile(directory, '../outside.ts')).rejects.toThrow(/stay inside/);
+    await expect(lintAdvancedVideoQuality(project.projectFile, project.motionPlanPath)).resolves.toMatchObject({
+      passed: false,
+      issues: expect.arrayContaining([
+        expect.objectContaining({code: 'MOTION_DIRECTION_EMPTY'}),
+        expect.objectContaining({code: 'MOTION_SHOTS_EMPTY'}),
+        expect.objectContaining({code: 'REVIEW_REGISTRY_MISSING'}),
+      ]),
+    });
+    await expect(renderAdvancedProject({
+      projectFile: project.projectFile,
+      output: join(directory, 'must-not-start-renderer.mp4'),
+    })).rejects.toMatchObject({
+      report: {
+        phase: 'preflight',
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({stage: 'motion-plan-preflight', code: 'MOTION_DIRECTION_EMPTY'}),
+        ]),
+      },
+    });
+  });
+
+  it('validates shot-boundary continuity before the first render', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ai-promo-motion-plan-'));
+    const motionPlanPath = join(directory, 'motion-plan.json');
+    const basePlan: MotionPlan = {
+      version: 1,
+      format: {width: 1920, height: 1080, platform: 'generic'},
+      direction: {
+        audience: 'Product teams',
+        promise: 'A clearer workflow',
+        visualConcept: 'One workspace transforming through the story',
+        movementPrinciple: 'Rightward focal travel carries each beat',
+      },
+      shots: [
+        {
+          id: 'setup',
+          start: 0,
+          end: 3,
+          subjectRegionId: 'subject',
+          motionIntent: 'continuous',
+          subjectMotion: 'The product surface advances through the frame.',
+          backgroundMotion: 'A restrained depth layer remains alive.',
+          cameraPath: 'One continuous rightward path.',
+          velocityBridges: ['Rightward travel becomes the next shot entry.'],
+        },
+        {
+          id: 'resolution',
+          start: 3,
+          end: 6,
+          subjectRegionId: 'subject',
+          motionIntent: 'mixed',
+          subjectMotion: 'The product reframes and settles for the CTA.',
+          backgroundMotion: 'Depth motion decelerates beneath the CTA.',
+          cameraPath: 'Continue rightward, then intentionally settle.',
+          velocityBridges: [],
+        },
+      ],
+      regions: [{
+        id: 'subject',
+        label: 'Focal product',
+        bounds: {x: 0.2, y: 0.15, width: 0.6, height: 0.7},
+        expectedMotion: 'continuous',
+      }],
+      reviewMoments: [{time: 5.6, label: 'CTA settled', kind: 'settle'}],
+      intentionalStillness: [],
+    };
+    await writeFile(motionPlanPath, JSON.stringify(basePlan));
+    await expect(validateMotionPlan(motionPlanPath)).resolves.toMatchObject({
+      valid: false,
+      issues: expect.arrayContaining([expect.objectContaining({code: 'SHOT_BOUNDARY_UNDECLARED'})]),
+      authoringGuide: expect.objectContaining({nextTool: 'validate_motion_plan'}),
+    });
+
+    basePlan.shots[0] = {
+      ...basePlan.shots[0],
+      boundaryToNext: {
+        mode: 'motivated-cut',
+        carrier: 'camera direction and focal position',
+        intent: 'The cut preserves rightward travel and the subject axis.',
+      },
+    };
+    await writeFile(motionPlanPath, JSON.stringify(basePlan));
+    await expect(validateMotionPlan(motionPlanPath)).resolves.toMatchObject({
+      valid: true,
+      durationSeconds: 6,
+      shotCount: 2,
+      issues: [],
+    });
   });
 
   it('recursively flattens scene-node collections without requiring a Revideo scene context', () => {
@@ -421,7 +580,7 @@ export default makeScene2D('test', function* () {});
     const transitionEntries = motionComponentLibrary.filter((item) => item.category === 'transition');
     const cameraEntries = motionComponentLibrary.filter((item) => item.category === 'camera');
     expect(transitionEntries).toHaveLength(10);
-    expect(cameraEntries).toHaveLength(7);
+    expect(cameraEntries).toHaveLength(8);
     expect(transitionEntries.every((item) => item.sourceExports.every((name) => name !== 'cameraMove'))).toBe(true);
     expect(cameraEntries.every((item) => item.sourceExports.every((name) => name !== 'cameraMove'))).toBe(true);
   });
@@ -671,6 +830,8 @@ describe('delivery cleanup', () => {
       await mkdir(join(project, directory), {recursive: true});
       await writeFile(join(project, directory, directory === 'diagnostics' ? 'review-manifest.json' : 'artifact.txt'), 'generated');
     }
+    await mkdir(join(project, 'work', 'shot-03', 'review-final'), {recursive: true});
+    await writeFile(join(project, 'work', 'shot-03', 'review-final', 'overview.png'), 'nested generated artifact');
     for (const directory of ['captures', 'media', 'public', 'reference']) {
       await mkdir(join(project, directory), {recursive: true});
       await writeFile(join(project, directory, 'required.txt'), 'render input');
@@ -697,6 +858,7 @@ describe('delivery cleanup', () => {
         'review-v2',
         'source-review',
         'test-results',
+        'work/shot-03/review-final',
       ],
     });
     await expect(access(join(delivery, 'final.mp4'))).resolves.toBeUndefined();
@@ -707,6 +869,65 @@ describe('delivery cleanup', () => {
     for (const directory of ['.playwright-cli', '.vite', 'audit-v1', 'custom-checks', 'diagnostics', 'output', 'playwright-report', 'renders', 'review-v2', 'source-review', 'test-results']) {
       await expect(access(join(project, directory))).rejects.toThrow();
     }
+    await expect(access(join(project, 'work', 'shot-03', 'review-final'))).rejects.toThrow();
+  });
+
+  it('cleans a project while preserving sibling files in an external shared outputs directory', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'ai-promo-external-output-'));
+    const project = join(workspace, 'promo-project');
+    const outputs = join(workspace, 'outputs');
+    await mkdir(join(project, 'review', 'pass-01'), {recursive: true});
+    await mkdir(outputs);
+    await writeFile(join(project, 'project.tsx'), 'editable');
+    await writeFile(join(project, 'review', 'pass-01', 'overview.png'), 'generated');
+    await writeFile(join(outputs, 'final.mp4'), 'final');
+    await writeFile(join(outputs, 'another-task.mp4'), 'unrelated');
+
+    const result = await cleanDeliveryOutput(outputs, ['final.mp4'], {projectDir: project});
+    expect(result).toMatchObject({
+      outputMode: 'shared',
+      kept: ['final.mp4'],
+      removed: [],
+      removedProjectArtifacts: ['review'],
+    });
+    await expect(access(join(outputs, 'final.mp4'))).resolves.toBeUndefined();
+    await expect(access(join(outputs, 'another-task.mp4'))).resolves.toBeUndefined();
+    await expect(access(join(project, 'project.tsx'))).resolves.toBeUndefined();
+    await expect(access(join(project, 'review'))).rejects.toThrow();
+  });
+
+  it('allows explicit owned cleanup for a dedicated external delivery directory', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'ai-promo-owned-output-'));
+    const project = join(workspace, 'promo-project');
+    const delivery = join(workspace, 'dedicated-delivery');
+    await mkdir(join(project, 'renders'), {recursive: true});
+    await mkdir(delivery);
+    await writeFile(join(project, 'project.tsx'), 'editable');
+    await writeFile(join(project, 'renders', 'draft.mp4'), 'generated');
+    await writeFile(join(delivery, 'final.mp4'), 'final');
+    await writeFile(join(delivery, 'draft.mp4'), 'temporary');
+
+    const result = await cleanDeliveryOutput(delivery, ['final.mp4'], {
+      projectDir: project,
+      outputMode: 'owned',
+    });
+    expect(result).toMatchObject({
+      outputMode: 'owned',
+      removed: ['draft.mp4'],
+      removedProjectArtifacts: ['renders'],
+    });
+    await expect(access(join(delivery, 'draft.mp4'))).rejects.toThrow();
+  });
+
+  it('refuses to treat the project root as an owned output directory', async () => {
+    const project = await mkdtemp(join(tmpdir(), 'ai-promo-owned-project-root-'));
+    await writeFile(join(project, 'project.tsx'), 'editable');
+    await writeFile(join(project, 'final.mp4'), 'final');
+    await expect(cleanDeliveryOutput(project, ['final.mp4'], {
+      projectDir: project,
+      outputMode: 'owned',
+    })).rejects.toThrow(/may not be the project root/);
+    await expect(access(join(project, 'project.tsx'))).resolves.toBeUndefined();
   });
 
   it('verifies finals and refuses protected temporary paths before deleting anything', async () => {

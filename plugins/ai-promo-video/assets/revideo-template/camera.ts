@@ -262,6 +262,95 @@ export interface CameraPathKeyframe {
   hold?: number;
 }
 
+export interface ContinuousCameraPathKeyframe {
+  position: CameraPoint;
+  scale?: number | CameraPoint;
+  rotation?: number;
+  /** Travel time from the preceding state to this state. */
+  duration: number;
+}
+
+function hermiteScalar(
+  from: number,
+  to: number,
+  fromVelocity: number,
+  toVelocity: number,
+  segmentDuration: number,
+  progress: number,
+) {
+  const progress2 = progress * progress;
+  const progress3 = progress2 * progress;
+  return (2 * progress3 - 3 * progress2 + 1) * from
+    + (progress3 - 2 * progress2 + progress) * segmentDuration * fromVelocity
+    + (-2 * progress3 + 3 * progress2) * to
+    + (progress3 - progress2) * segmentDuration * toVelocity;
+}
+
+function tangent(values: number[], times: number[], index: number) {
+  if (values.length < 2) return 0;
+  if (index === 0 || index === values.length - 1) return 0;
+  return (values[index + 1] - values[index - 1]) / (times[index + 1] - times[index - 1]);
+}
+
+function continuousValue(values: number[], times: number[], elapsed: number) {
+  const last = values.length - 1;
+  if (elapsed <= 0) return values[0];
+  if (elapsed >= times[last]) return values[last];
+  let segment = 0;
+  while (segment < last - 1 && elapsed > times[segment + 1]) segment += 1;
+  const duration = times[segment + 1] - times[segment];
+  const progress = (elapsed - times[segment]) / duration;
+  return hermiteScalar(
+    values[segment],
+    values[segment + 1],
+    tangent(values, times, segment),
+    tangent(values, times, segment + 1),
+    duration,
+    progress,
+  );
+}
+
+/**
+ * Move through all camera targets in one C1-continuous timeline. Unlike
+ * cameraPath, intermediate beats do not ease to zero velocity.
+ */
+export function* continuousCameraPath(cameraRef: Reference<Node>, keyframes: ContinuousCameraPathKeyframe[]) {
+  if (keyframes.length === 0) return;
+  if (keyframes.some((keyframe) => !Number.isFinite(keyframe.duration) || keyframe.duration <= 0)) {
+    throw new Error('continuousCameraPath keyframe durations must be greater than zero');
+  }
+  const camera = cameraRef();
+  assertSceneNodesMounted(camera, 'continuousCameraPath camera');
+  const initialPosition = position(camera);
+  const initialScale = scale(camera);
+  const positions = [initialPosition, ...keyframes.map((keyframe) => keyframe.position)];
+  const scales = [initialScale];
+  const rotations = [camera.rotation()];
+  for (const keyframe of keyframes) {
+    const precedingScale = scales.at(-1)!;
+    scales.push(typeof keyframe.scale === 'number'
+      ? [keyframe.scale, keyframe.scale]
+      : keyframe.scale ?? precedingScale);
+    rotations.push(keyframe.rotation ?? rotations.at(-1)!);
+  }
+  const times = [0];
+  for (const keyframe of keyframes) times.push(times.at(-1)! + keyframe.duration);
+  const totalDuration = times.at(-1)!;
+
+  yield* tween(totalDuration, (progress) => {
+    const elapsed = progress * totalDuration;
+    camera.position([
+      continuousValue(positions.map((point) => point[0]), times, elapsed),
+      continuousValue(positions.map((point) => point[1]), times, elapsed),
+    ]);
+    camera.scale([
+      continuousValue(scales.map((point) => point[0]), times, elapsed),
+      continuousValue(scales.map((point) => point[1]), times, elapsed),
+    ]);
+    camera.rotation(continuousValue(rotations, times, elapsed));
+  });
+}
+
 /** Open custom escape hatch for any authored camera path not represented by catalog rigs. */
 export function* cameraPath(cameraRef: Reference<Node>, keyframes: CameraPathKeyframe[]) {
   const camera = cameraRef();

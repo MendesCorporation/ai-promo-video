@@ -5,11 +5,18 @@ import { basename, isAbsolute, join, parse, relative, resolve, sep } from 'node:
 export interface ProjectCleanupOptions {
   projectDir?: string;
   temporaryPaths?: string[];
+  /**
+   * owned removes every output-directory entry except keepFiles.
+   * shared verifies keepFiles but never removes sibling outputs.
+   * When omitted, output directories outside projectDir default to shared.
+   */
+  outputMode?: 'owned' | 'shared';
 }
 
 export interface DeliveryCleanupResult {
   outputDir: string;
   projectDir?: string;
+  outputMode: 'owned' | 'shared';
   kept: string[];
   removed: string[];
   removedProjectArtifacts: string[];
@@ -141,7 +148,7 @@ async function discoverGeneratedArtifacts(projectRoot: string, outputRoot: strin
 
 async function resolveTemporaryPaths(
   projectRoot: string,
-  outputRoot: string,
+  protectedOutputRoot: string | undefined,
   temporaryPaths: string[],
 ): Promise<string[]> {
   const resolved: string[] = [];
@@ -151,7 +158,11 @@ async function resolveTemporaryPaths(
     if (!isWithin(projectRoot, target) || target === projectRoot) {
       throw new Error(`Temporary path escapes the project directory: ${value}`);
     }
-    if (target === outputRoot || isWithin(target, outputRoot) || isWithin(outputRoot, target)) {
+    if (protectedOutputRoot && (
+      target === protectedOutputRoot
+      || isWithin(target, protectedOutputRoot)
+      || isWithin(protectedOutputRoot, target)
+    )) {
       throw new Error(`Temporary path may not contain or be inside the delivery directory: ${value}`);
     }
     if (protectedPath(projectRoot, target)) {
@@ -186,28 +197,40 @@ export async function cleanDeliveryOutput(
 
   let projectRoot: string | undefined;
   let projectArtifacts: string[] = [];
+  let outputMode: 'owned' | 'shared' = options.outputMode ?? 'owned';
   if (options.projectDir) {
     projectRoot = resolve(options.projectDir);
     assertSafeRoot(projectRoot, 'projectDir');
-    if (!isWithin(projectRoot, root)) throw new Error('outputDir must be inside projectDir');
+    const outputInsideProject = isWithin(projectRoot, root);
+    outputMode = options.outputMode ?? (outputInsideProject ? 'owned' : 'shared');
+    if (outputMode === 'owned' && isWithin(root, projectRoot)) {
+      throw new Error('An owned outputDir may not be the project root or contain it');
+    }
     const discovered = await discoverGeneratedArtifacts(projectRoot, root);
-    const declared = await resolveTemporaryPaths(projectRoot, root, options.temporaryPaths ?? []);
+    const declared = await resolveTemporaryPaths(
+      projectRoot,
+      outputInsideProject ? root : undefined,
+      options.temporaryPaths ?? [],
+    );
     projectArtifacts = collapseDescendants([...discovered, ...declared]);
   } else if ((options.temporaryPaths?.length ?? 0) > 0) {
     throw new Error('projectDir is required when temporaryPaths are provided');
   }
 
   const removed: string[] = [];
-  for (const entry of entries) {
-    if (keep.includes(entry.name)) continue;
-    await rm(join(root, entry.name), {recursive: true, force: true});
-    removed.push(entry.name);
+  if (outputMode === 'owned') {
+    for (const entry of entries) {
+      if (keep.includes(entry.name)) continue;
+      await rm(join(root, entry.name), {recursive: true, force: true});
+      removed.push(entry.name);
+    }
   }
   for (const target of projectArtifacts) await rm(target, {recursive: true, force: true});
 
   return {
     outputDir: root,
     projectDir: projectRoot,
+    outputMode,
     kept: keep.sort(),
     removed: removed.sort(),
     removedProjectArtifacts: projectRoot

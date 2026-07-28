@@ -1,6 +1,6 @@
 # Free Music Sourcing
 
-Music may come from user-approved local directories, Openverse, or the optional bundled CC0 set. Nothing is selected by default. Write musical intent before searching: emotional direction, energy curve, pacing, desired and undesired instruments, density, and the edit accents the track must support.
+Music may come from user-approved local directories, the Freesound, Jamendo, and Wikimedia Audio catalogs exposed through Openverse, or the optional bundled CC0 set. Nothing is selected by default. Write musical intent before searching: emotional direction, energy curve, pacing, desired and undesired instruments, density, and the edit accents the track must support.
 
 Search results are candidates, not recommendations. A viable track passes the license, duration, technical-quality, and declared musical-intent filters. Compare at least three viable tracks when available. If fewer remain after trying two meaningfully different queries or approved sources, compare what exists and record the limitation instead of searching indefinitely. Do not pick the first result, reuse a bundled track because it is convenient, or treat any packaged audio as a fallback. If no candidate fits, leave music out pending a better choice.
 
@@ -25,7 +25,18 @@ Bundled tracks are excluded from general search unless `includeBundled` is expli
 
 ## Online search
 
-Openverse results default to CC0, public-domain, or CC BY material. Download the chosen result through the tool so the audio, source metadata, license URL, landing page, and attribution manifest stay together. Confirm the license still matches the source page before publication.
+Use `search_music` with `provider: all` for the default aggregate. The returned order is:
+
+1. Freesound through Openverse source filtering.
+2. User-approved local libraries.
+3. Jamendo through Openverse.
+4. Wikimedia Audio through Openverse.
+
+Use `provider: freesound`, `jamendo`, or `wikimedia_audio` to isolate a catalog. Use `provider: openverse` only for an explicit custom `source` or a general Openverse query.
+
+Freesound is the preferred online starting point because its tags, previews, creator metadata, and range of music and sound design make intent-based comparison effective. Access it through Openverse's indexed catalog in the default commercial workflow. Do not call the Freesound API directly unless the user has separately accepted or licensed its API terms; its free API terms are not the default commercial integration path.
+
+Openverse results are restricted to CC0, public-domain, or CC BY material. Download the chosen result through the tool so the audio, original source name, license URL, landing page, and attribution manifest stay together. Confirm the license still matches the source page before publication.
 
 ## Compare and analyze
 

@@ -1,8 +1,9 @@
 import {existsSync, readFileSync} from 'node:fs';
 import {dirname, isAbsolute, relative, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import type {MotionPlanValidation} from './motion-plan.js';
 
-export type AdvancedDiagnosticStage = 'source-preflight' | 'typecheck-preflight' | 'renderer';
+export type AdvancedDiagnosticStage = 'motion-plan-preflight' | 'source-preflight' | 'typecheck-preflight' | 'renderer';
 
 export interface AdvancedDiagnostic {
   stage: AdvancedDiagnosticStage;
@@ -175,6 +176,25 @@ export function rendererFailureReport(summary: string, raw: string, projectFile:
     summary: effectiveSummary,
     diagnostics,
     ...(rawTail ? {rawTail} : {}),
+  };
+}
+
+export function motionPlanFailureReport(validation: MotionPlanValidation): AdvancedFailureReport {
+  return {
+    ok: false,
+    phase: 'preflight',
+    summary: 'Motion plan validation failed before renderer startup.',
+    diagnostics: validation.issues.map((issue) => ({
+      stage: 'motion-plan-preflight',
+      severity: issue.severity === 'info' ? 'warning' : issue.severity,
+      code: issue.code,
+      message: issue.message,
+      file: issue.file,
+      relativeFile: issue.relativeFile,
+      line: issue.line,
+      suggestion: issue.suggestion,
+      helpTarget: 'tool:validate_motion_plan',
+    })),
   };
 }
 

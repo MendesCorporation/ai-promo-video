@@ -3,9 +3,13 @@ import { basename, extname, join, resolve } from 'node:path';
 import ffprobeStatic from 'ffprobe-static';
 import type { MusicSearchResult } from '../types.js';
 import { audioDirectory, loadAudioCatalog } from './catalog.js';
+import { searchOpenverseMusic } from './openverse.js';
 import { runCommand } from '../utils/process.js';
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus']);
+const PRIORITY_AUDIO_SOURCES = ['freesound', 'jamendo', 'wikimedia_audio'] as const;
+
+export type MusicSearchProvider = 'all' | 'local' | 'bundled' | 'freesound' | 'jamendo' | 'wikimedia_audio' | 'openverse';
 
 async function walk(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -94,4 +98,63 @@ export async function searchLocalMusic(options: {
   return [...(options.includeBundled === true ? bundled : []), ...local].filter((result) => matches(result, options.query)
     && (options.minDuration === undefined || (result.duration ?? 0) >= options.minDuration)
     && (options.maxDuration === undefined || (result.duration ?? Infinity) <= options.maxDuration));
+}
+
+function dedupeMusic(results: MusicSearchResult[]): MusicSearchResult[] {
+  const seen = new Set<string>();
+  return results.filter((result) => {
+    const key = `${result.provider}:${result.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function searchMusic(options: {
+  query?: string;
+  provider?: MusicSearchProvider;
+  localDirectories?: string[];
+  includeBundled?: boolean;
+  source?: string;
+  minDuration?: number;
+  maxDuration?: number;
+  allowUnknownLocalLicense?: boolean;
+} = {}): Promise<MusicSearchResult[]> {
+  const provider = options.provider ?? 'all';
+  const common = { minDuration: options.minDuration, maxDuration: options.maxDuration };
+
+  if (provider === 'local' || provider === 'bundled') {
+    return searchLocalMusic({
+      query: options.query,
+      directories: options.localDirectories,
+      includeBundled: provider === 'bundled' || options.includeBundled === true,
+      allowUnknownLicense: options.allowUnknownLocalLicense,
+      ...common,
+    });
+  }
+
+  if (!options.query) throw new Error('Online music search requires a query');
+
+  if (provider === 'openverse') {
+    return searchOpenverseMusic({ query: options.query, source: options.source, ...common });
+  }
+
+  if (provider !== 'all') {
+    return searchOpenverseMusic({ query: options.query, source: provider, ...common });
+  }
+
+  const [freesound, local, jamendo, wikimedia] = await Promise.all([
+    searchOpenverseMusic({ query: options.query, source: PRIORITY_AUDIO_SOURCES[0], ...common }),
+    searchLocalMusic({
+      query: options.query,
+      directories: options.localDirectories,
+      includeBundled: options.includeBundled,
+      allowUnknownLicense: options.allowUnknownLocalLicense,
+      ...common,
+    }),
+    searchOpenverseMusic({ query: options.query, source: PRIORITY_AUDIO_SOURCES[1], ...common }),
+    searchOpenverseMusic({ query: options.query, source: PRIORITY_AUDIO_SOURCES[2], ...common }),
+  ]);
+
+  return dedupeMusic([...freesound, ...local, ...jamendo, ...wikimedia]);
 }

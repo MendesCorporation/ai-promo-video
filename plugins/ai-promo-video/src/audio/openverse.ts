@@ -10,6 +10,7 @@ interface OpenverseAudio {
   id: string;
   title: string;
   creator?: string;
+  source?: string;
   duration?: number;
   license: string;
   license_url?: string;
@@ -23,6 +24,7 @@ interface OpenverseAudio {
 function normalize(item: OpenverseAudio): MusicSearchResult {
   return {
     provider: 'openverse',
+    source: item.source,
     id: item.id,
     title: item.title || 'Untitled track',
     creator: item.creator,
@@ -63,10 +65,11 @@ export async function searchOpenverseMusic(options: {
     && (options.maxDuration === undefined || (result.duration ?? Infinity) <= options.maxDuration));
 }
 
-function extension(item: OpenverseAudio): string {
-  const declared = item.filetype?.toLowerCase();
+export function openverseAudioExtension(filetype?: string, url?: string): string {
+  const declared = filetype?.toLowerCase();
+  if (declared === 'mp3' || declared === 'mp32') return '.mp3';
   if (declared && /^[a-z0-9]+$/.test(declared)) return `.${declared}`;
-  const fromUrl = item.url ? extname(new URL(item.url).pathname).toLowerCase() : '';
+  const fromUrl = url ? extname(new URL(url).pathname).toLowerCase() : '';
   return fromUrl || '.mp3';
 }
 
@@ -84,7 +87,7 @@ export async function downloadOpenverseMusic(id: string, outputDir: string): Pro
 
   const targetDir = resolve(outputDir);
   await mkdir(targetDir, { recursive: true });
-  const path = join(targetDir, `openverse-${item.id}${extension(item)}`);
+  const path = join(targetDir, `openverse-${item.id}${openverseAudioExtension(item.filetype, item.url)}`);
   await writeFile(path, bytes);
   const metadataPath = `${path}.json`;
   await writeFile(metadataPath, `${JSON.stringify({ ...result, localPath: path, downloadedAt: new Date().toISOString() }, null, 2)}\n`, 'utf8');
@@ -98,7 +101,18 @@ export async function downloadOpenverseMusic(id: string, outputDir: string): Pro
     // Start a new credits manifest.
   }
   const withoutCurrent = credits.filter((entry) => (entry as { id?: string }).id !== result.id);
-  withoutCurrent.push({ id: result.id, title: result.title, creator: result.creator, license: result.license, licenseUrl: result.licenseUrl, attribution: result.attribution, landingUrl: result.landingUrl, localPath: path });
+  withoutCurrent.push({
+    provider: result.provider,
+    source: result.source,
+    id: result.id,
+    title: result.title,
+    creator: result.creator,
+    license: result.license,
+    licenseUrl: result.licenseUrl,
+    attribution: result.attribution,
+    landingUrl: result.landingUrl,
+    localPath: path,
+  });
   await writeFile(creditsPath, `${JSON.stringify(withoutCurrent, null, 2)}\n`, 'utf8');
   return { ...result, localPath: path };
 }

@@ -32,6 +32,9 @@ export function assessFreeLicense(license: string, options: { includeShareAlike?
   if (/\bpexels license\b/.test(value)) {
     return { selectable: true, requiresAttribution: false, requiresShareAlike: false, reason: 'Free commercial use under the Pexels License; preserve source metadata and avoid implied endorsement.' };
   }
+  if (/\bpixabay content license\b/.test(value)) {
+    return { selectable: true, requiresAttribution: false, requiresShareAlike: false, reason: 'Free commercial use under the Pixabay Content License; preserve source metadata and avoid standalone redistribution or implied endorsement.' };
+  }
   if (/\b(by-sa|by sa|sharealike|share alike)\b/.test(value)) {
     return {
       selectable: options.includeShareAlike === true,
